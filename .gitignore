@@ -1,0 +1,110 @@
+# ==============================================================================
+# DSA Visualizer - .gitignore
+# ==============================================================================
+
+# =========================
+# 1. General & OS Files
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
+[Tt]humbs.db
+*.log
+.env
+.env.*
+!.env.example
+*.tmp
+*.temp
+
+# =========================
+# 2. Frontend (React / TypeScript / Vite / Next.js)
+# =========================
+# Dependencies
+node_modules/
+
+# Build and Output
+dist/
+build/
+.next/
+.vite/
+coverage/
+*.tsbuildinfo
+.npm
+
+# =========================
+# 3. Backend (Python)
+# =========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Tool Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+
+# Distribution
+*.egg-info/
+*.egg
+build/
+dist/
+
+# =========================
+# 4. IDEs and Editors
+# =========================
+.idea/
+.vscode/*
+# Allow shared project settings
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# =========================
+# 5. Project-Specific Debug/Trace Outputs
+# =========================
+debug/
+*_output.json
+*_trace.json
+output.json
+output_utf8.json
+heap_output.txt
+leak_output.json
+trace_output.json
+tracer_output.json
+test_results.txt
+
+# =========================
+# Merged from frontend/.gitignore
+# =========================
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+out/
+.vercel
+*.pem
+next-env.d.ts

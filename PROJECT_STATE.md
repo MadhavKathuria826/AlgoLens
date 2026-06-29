@@ -1,0 +1,79 @@
+# AlgoLens — Project State & Architecture
+
+This document serves as the single source of truth for the current state, architecture, and behavior of the AlgoLens project.
+
+## 1. High-Level Architecture
+
+The AlgoLens is an educational tool designed to dynamically visualize algorithmic execution. It uses a **Semantic-First Visualization Engine**: visualizations emerge directly from runtime behavior and memory addresses, not just variable names.
+
+The application is split into two main halves:
+*   **Backend (`tracer.py`)**: A Python tracing engine that hooks into execution, intercepts memory state, and emits execution frames.
+*   **Frontend (Next.js / React)**: A semantic analyzer and rendering engine that classifies data structures and animates them using Framer Motion.
+
+---
+
+## 2. Core Systems
+
+### A. The Backend Tracer (`tracer.py`)
+*   **Execution Hooking**: Uses `sys.settrace` to record local variables, line numbers, and object references (`obj_id`) at every step.
+*   **Polyfills**: Built-in Python modules with fast C-implementations (like `heapq`) are polyfilled with pure-Python equivalents. 
+    *   *Recent Upgrade*: The `heapq` polyfill was modified to perform logical element **swaps** instead of temporary hole-filling copies. This ensures the visualizer correctly animates values shifting without duplicating nodes.
+*   **JSON Serialization**: Emits a compressed, diff-based JSON array of frames to the frontend.
+
+### B. The Semantic Analyzer (`semanticAnalyzer.ts`)
+*   **Behavioral Scoring**: Instead of relying on variable names, arrays and structures are scored based on how they are accessed and mutated.
+*   **Roles**: Containers accumulate points for roles like `STACK`, `QUEUE`, `DEQUE`, and `HEAP`. 
+*   **Hysteresis & Locking**: Once a container is proven to be a `HEAP` (e.g., scoring reaches the `Infinity` margin lock), it permanently retains that visual identity.
+*   **Memory Aliasing (`obj_id`)**: The analyzer binds semantic roles to the native CPython memory ID (`obj_id`), ensuring that if a list is passed into a function under a different parameter name (e.g., `h` -> `heap`), it retains its semantic role.
+
+### C. The Rendering Pipeline (`VisualizationCanvas.tsx`)
+*   **Component Routing**: Maps the primary semantic role to the appropriate React component (`HeapVisualizer`, `StackVisualizer`, `ArrayVisualizer`, etc.).
+*   **Stable Mounts**: Component React `key`s are bound exclusively to the `obj_id` (e.g., `key={'heap-' + vis.details.obj_id}`). This prevents catastrophic unmounting/remounting when variable names change across function boundaries.
+
+---
+
+## 3. The Graph Rendering Engine
+
+The project utilizes a unified, agnostic rendering engine for all tree-like topologies: **`GraphTreeRenderer.tsx`**. 
+
+### `TreeVisualizer.tsx` vs `HeapVisualizer.tsx`
+Rather than both components implementing their own complex math and DOM logic, they now act as **thin topology adapters**. 
+*   `TreeVisualizer` parses node/left/right structures and passes them to `GraphTreeRenderer`.
+*   `HeapVisualizer` maps 1D array math (`2*i + 1`, `2*i + 2`) into physical node coordinates via an Inorder layout algorithm and passes them to `GraphTreeRenderer`.
+
+### Framer Motion & Layout Stability
+Animations are strictly controlled to prevent layout distortion:
+1.  **Absolute Math**: Node coordinates are calculated using absolute math (e.g., `HORIZONTAL_SPACING = 60`) rather than CSS flexbox or percentages.
+2.  **No Projection Engine**: The Framer Motion `layoutId` attribute is **disabled** for graph nodes. This prevents the projection engine from erroneously scaling or flashing nodes when the SVG container expands.
+3.  **Stationary Isolation**: `GraphTreeRenderer` computes a `hasMoved` state during render. Nodes whose `x` and `y` coordinates do not physically change receive a transition duration of `0`. This guarantees that stationary nodes do not pulse or bounce when unrelated properties (like pointer shadows) change during a swap.
+
+---
+
+## 4. Current File Map
+
+### Python Backend
+*   `run_tracer.py`: The entrypoint script for executing code and calling the tracer.
+*   `tracer.py`: The core tracing class and polyfills.
+
+### Frontend Components (`/frontend/src/components/`)
+*   `VisualizationCanvas.tsx`: The primary orchestrator handling canvas state and component routing.
+*   `visualizers/GraphTreeRenderer.tsx`: The highly-optimized master rendering engine for trees and heaps.
+*   `visualizers/HeapVisualizer.tsx`: The topology adapter bridging a 1D array into the GraphTreeRenderer.
+*   `visualizers/TreeVisualizer.tsx`: The topology adapter for object-based trees.
+*   `visualizers/ArrayVisualizer.tsx`: Standard 1D flexbox array rendering.
+*   *(Other Visualizers)*: `StackVisualizer.tsx`, `QueueVisualizer.tsx`, `DequeVisualizer.tsx`, `LinkedListVisualizer.tsx`.
+
+### Logic & Types
+*   `/frontend/src/utils/semanticAnalyzer.ts`: The behavioral heuristics engine.
+*   `/frontend/test_heap.ts`: Diagnostic TS script used for debugging math and layout logic.
+
+---
+
+## 5. Upcoming Roadmap
+
+With the current Heap/Array system and the unified `GraphTreeRenderer` now rock-solid, the next planned targets according to previous project goals are:
+*   **AVL Trees**
+*   **Red-Black Trees**
+*   **Tries** 
+
+These will cleanly slot into the existing architecture by writing thin adapters that calculate standard node positions and pipe them directly into `GraphTreeRenderer`.
