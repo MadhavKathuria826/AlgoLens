@@ -6,11 +6,14 @@ import { ScrollControls, Scroll, Sparkles, Sphere, Line, useScroll, Environment,
 import * as THREE from 'three';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMotionValue, animate, motion } from 'framer-motion';
+import { useMotionValue, animate, motion, useTransform, useMotionTemplate, useScroll as useFramerScroll } from 'framer-motion';
 import { Search } from 'lucide-react';
+import StudioPage from './studio/page';
 
-function TreeDemo() {
-  const scroll = useScroll();
+type AppState = 'landing' | 'pre-transition' | 'transition-to-studio' | 'studio' | 'transition-to-landing';
+
+function TreeDemo({ appState }: { appState: AppState }) {
+  const { scrollYProgress } = useFramerScroll();
   const group = useRef<THREE.Group>(null);
   const rotationY = useMotionValue(0);
   const modeRef = useRef<'scroll' | 'auto'>('scroll');
@@ -32,7 +35,7 @@ function TreeDemo() {
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const offset = scroll.offset; // 0 to 1
+    const offset = scrollYProgress.get(); // 0 to 1
 
     // Tree grows on scroll
     // Let's say offset 0 to 0.7 handles growth
@@ -115,6 +118,13 @@ function TreeDemo() {
     // Kept centered in viewport
     group.current.position.y = 0;
     group.current.position.x = 2; // Offset slightly to the right to leave space for text
+    
+    // Dolly camera in/out based on transition state
+    if (appState === 'transition-to-studio' || appState === 'studio') {
+      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 2, 0.05);
+    } else {
+      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 10, 0.05);
+    }
   });
 
   return (
@@ -155,7 +165,7 @@ function TreeDemo() {
   );
 }
 
-function Scene({ reducedMotion }: { reducedMotion: boolean }) {
+function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: AppState }) {
   return (
     <>
       <color attach="background" args={['#020204']} />
@@ -165,7 +175,7 @@ function Scene({ reducedMotion }: { reducedMotion: boolean }) {
       
       {!reducedMotion && <Sparkles count={300} scale={15} size={2} speed={0.4} opacity={0.3} color="#09fbd3" />}
       
-      <TreeDemo />
+      <TreeDemo appState={appState} />
       <Environment preset="city" />
     </>
   );
@@ -181,10 +191,59 @@ function ReadyEvent({ onReady }: { onReady: () => void }) {
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [appState, setAppState] = useState<AppState>('landing');
   const [webglSupported, setWebglSupported] = useState(true);
   const [sceneReady, setSceneReady] = useState(false);
-  const router = useRouter();
+
+  const [irisOrigin, setIrisOrigin] = useState({ x: 0, y: 0 });
+  const lensRef = useRef<HTMLSpanElement>(null);
+  
+  const irisRadius = useMotionValue(0);
+  const getMaxRadius = () => typeof window !== 'undefined' ? Math.max(window.innerWidth, window.innerHeight) * 1.5 : 3000;
+  
+  const landingBlur = useTransform(irisRadius, [0, 3000], [0, 12]);
+  const landingGrayscale = useTransform(irisRadius, [0, 3000], [0, 60]);
+  const landingFilter = useMotionTemplate`blur(${landingBlur}px) grayscale(${landingGrayscale}%)`;
+  
+  const ringSize = useMotionTemplate`calc(${irisRadius}px * 2)`;
+  const ringX = useMotionTemplate`calc(${irisOrigin.x}px - ${irisRadius}px)`;
+  const ringY = useMotionTemplate`calc(${irisOrigin.y}px - ${irisRadius}px)`;
+  const irisClipPath = useMotionTemplate`circle(${irisRadius}px at ${irisOrigin.x}px ${irisOrigin.y}px)`;
+
+  const handleBack = () => {
+    if (reducedMotion) {
+      setAppState('landing');
+      window.history.pushState({}, '', '/');
+      return;
+    }
+    
+    if (lensRef.current) {
+      const rect = lensRef.current.getBoundingClientRect();
+      setIrisOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    }
+    
+    setAppState('transition-to-landing');
+    window.history.pushState({}, '', '/');
+    
+    animate(irisRadius, 12, {
+      duration: 3.0,
+      ease: [0.34, 1.1, 0.64, 1], // overshoot settle
+      onComplete: () => {
+        setAppState('landing');
+        irisRadius.set(0);
+      }
+    });
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (window.location.pathname === '/' && appState === 'studio') {
+        handleBack();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [appState]);
 
   useEffect(() => {
     setIsClient(true);
@@ -201,10 +260,35 @@ export default function Home() {
   }, []);
 
   const handleStudioLaunch = () => {
-    setIsTransitioning(true);
+    if (appState !== 'landing') return;
+
+    if (reducedMotion) {
+      setAppState('studio');
+      window.history.pushState({}, '', '/studio');
+      return;
+    }
+    
+    if (lensRef.current) {
+      const rect = lensRef.current.getBoundingClientRect();
+      setIrisOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      setIrisOrigin({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    }
+    
+    setAppState('pre-transition');
+    irisRadius.set(12); // Start at the radius of the "O"
+    
     setTimeout(() => {
-      router.push('/studio');
-    }, 800);
+      setAppState('transition-to-studio');
+      animate(irisRadius, getMaxRadius(), {
+        duration: 3.5, // Cinematic slow pace
+        ease: [0.34, 1.1, 0.64, 1],
+        onComplete: () => {
+          setAppState('studio');
+          window.history.pushState({}, '', '/studio');
+        }
+      });
+    }, 150);
   };
 
   const Content = () => (
@@ -251,30 +335,47 @@ export default function Home() {
   );
 
   return (
-    <div className="w-full h-screen bg-bg-app text-white overflow-hidden font-sans selection:bg-brand-teal/30 relative">
+    <div className="w-full min-h-screen bg-bg-app text-white font-sans selection:bg-brand-teal/30 relative">
       
-      {/* Fallback & Loading Overlay (Cross-fades out when WebGL is ready) */}
+      {/* Fallback Background (Cross-fades out when WebGL is ready) */}
       <div 
-        className={`absolute inset-0 z-20 transition-opacity duration-1000 bg-bg-app ${
-          isClient && webglSupported && sceneReady ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        className={`fixed inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-brand-teal/10 via-bg-app to-bg-app transition-opacity duration-1000 pointer-events-none ${
+          isClient && webglSupported && sceneReady ? 'opacity-0' : 'opacity-100'
         }`}
-      >
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-brand-teal/10 via-bg-app to-bg-app pointer-events-none" />
-        <div className={`h-full w-full relative z-10 ${!webglSupported ? 'overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth' : 'overflow-hidden'}`}>
-          <Content />
-        </div>
-      </div>
+      />
 
-      {/* Studio Transition Overlay */}
-      <div 
-        className={`absolute inset-0 z-[100] bg-bg-app transition-opacity duration-700 pointer-events-none flex items-center justify-center ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <div className={`transition-all duration-700 ${isTransitioning ? 'scale-100 blur-none opacity-100' : 'scale-90 blur-md opacity-0'}`}>
-          <div className="text-3xl font-bold tracking-tight text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
-            AlgoLens <span className="text-brand-teal">Studio</span>
-          </div>
-        </div>
-      </div>
+      {/* Studio Iris Reveal Overlay */}
+      {appState !== 'landing' && !reducedMotion && (
+        <motion.div 
+          className="fixed inset-0 z-[200] pointer-events-auto overflow-hidden bg-bg-app"
+          style={{ clipPath: irisClipPath }}
+        >
+          <StudioPage onBack={handleBack} />
+        </motion.div>
+      )}
+
+      {/* Refraction Edge Ring (The actual visible lens rim) */}
+      {appState !== 'landing' && appState !== 'studio' && !reducedMotion && (
+        <motion.div
+          className="fixed pointer-events-none rounded-full z-[201]"
+          style={{
+            width: ringSize,
+            height: ringSize,
+            left: ringX,
+            top: ringY,
+            border: '3px solid rgba(9, 251, 211, 0.8)',
+            backdropFilter: 'blur(8px) brightness(1.2)',
+            WebkitMaskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
+            maskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
+            boxShadow: '0 0 30px rgba(9,251,211,0.5), inset 0 0 30px rgba(9,251,211,0.5)',
+          }}
+        />
+      )}
+
+      {/* Landing Page Content (Blurred during transition, native scrolling) */}
+      <motion.div className="w-full relative z-10" style={{ filter: landingFilter }}>
+        <Content />
+      </motion.div>
 
       <div className="fixed top-8 left-1/2 -translate-x-1/2 w-[90%] md:w-full max-w-[900px] z-50 flex justify-between items-center pointer-events-none">
         
@@ -286,9 +387,15 @@ export default function Home() {
         >
           <div className="text-xl md:text-2xl font-bold tracking-tight text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.4)] flex items-center">
             Alg
-            <span className="relative inline-flex items-center justify-center mx-[1px] w-[1em] h-[1em] group-hover:text-brand-teal transition-colors">
+            <span 
+              ref={lensRef}
+              className={`relative inline-flex items-center justify-center mx-[1px] w-[1em] h-[1em] transition-all duration-150 ${appState === 'pre-transition' ? 'text-brand-teal scale-125 drop-shadow-[0_0_20px_#09fbd3]' : 'group-hover:text-brand-teal'}`}
+            >
               <span className="absolute top-[12.5%] left-[12.5%] w-[66.6%] h-[66.6%] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[inset_0_0_8px_rgba(9,251,211,0.6)]" style={{ backdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)' }}></span>
-              <Search className="absolute inset-0 w-full h-full z-10" strokeWidth={3} />
+              <Search 
+                className={`absolute inset-0 w-full h-full z-10 transition-transform duration-[2000ms] ease-out origin-bottom-right ${appState !== 'landing' ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`} 
+                strokeWidth={3} 
+              />
             </span>
             Lens
           </div>
@@ -328,18 +435,16 @@ export default function Home() {
         </motion.div>
       </div>
 
+      {/* 3D Background Canvas */}
       {isClient && webglSupported && (
-        <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }}>
-          <ScrollControls pages={3} damping={reducedMotion ? 0 : 0.2}>
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }}>
             <Suspense fallback={null}>
-              <Scene reducedMotion={reducedMotion} />
+              <Scene reducedMotion={reducedMotion} appState={appState} />
               <ReadyEvent onReady={() => setSceneReady(true)} />
             </Suspense>
-            <Scroll html style={{ width: '100%', height: '100%' }}>
-              <Content />
-            </Scroll>
-          </ScrollControls>
-        </Canvas>
+          </Canvas>
+        </div>
       )}
     </div>
   );

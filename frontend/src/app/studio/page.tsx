@@ -10,7 +10,7 @@ import axios from 'axios';
 import { Play, RotateCcw, StepForward, StepBack, Loader2, Pause, SkipBack } from 'lucide-react';
 import { SemanticAnalyzer } from '@/utils/semanticAnalyzer';
 
-export default function Studio() {
+export default function Studio({ onBack }: { onBack?: () => void }) {
   const [code, setCode] = useState(`def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nresult = factorial(3)`);
   const [steps, setSteps] = useState<any[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -169,7 +169,16 @@ export default function Studio() {
       {/* Global App Navigation Bar */}
       <nav className="h-[72px] w-full flex items-center justify-between px-6 bg-bg-surface border-b border-white/5 shrink-0 z-50">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-xl font-bold tracking-tight text-brand-teal">
+          <Link 
+            href="/" 
+            onClick={(e) => {
+              if (onBack) {
+                e.preventDefault();
+                onBack();
+              }
+            }}
+            className="text-xl font-bold tracking-tight text-brand-teal"
+          >
             AlgoLens
           </Link>
           <div className="h-4 w-px bg-white/10 mx-2" />
