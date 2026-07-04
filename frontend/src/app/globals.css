@@ -1,30 +1,69 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0a0a0f;
-  --color-foreground: #e2e8f0;
+  --color-brand-teal: #00e5ff;
+  --color-brand-cyan: #09fbd3;
+  --color-brand-violet: #fe53bb;
+  --color-brand-cream: #f8f9fa;
+  --color-brand-coral: #ff2a2a;
+  
+  --color-bg-app: #020204; /* Void Black / Deep Space */
+  --color-bg-surface: rgba(15, 20, 25, 0.6); /* Frosted glass */
+  --color-text-body: #94a3b8;
+  --color-text-heading: #ffffff;
+  
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* Shadows updated to Glows / Rim Lights */
+  --shadow-ambient: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-rim: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 15px rgba(0, 229, 255, 0.4), 0 0 30px rgba(0, 229, 255, 0.2);
+  --shadow-cinematic: 0 32px 100px rgba(0, 0, 0, 0.9);
 }
 
 @layer base {
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--color-bg-app);
+    color: var(--color-text-body);
     @apply antialiased overflow-x-hidden;
   }
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-xl;
+  .btn-primary {
+    @apply bg-brand-cream text-slate-900 font-bold px-6 h-12 rounded-xl shadow-ambient transition-all duration-300 hover:shadow-glow hover:-translate-y-1 active:scale-95 disabled:opacity-40 min-w-[88px] flex items-center justify-center;
   }
-  
+  .btn-primary-glow {
+    @apply bg-gradient-to-r from-brand-teal to-brand-cyan text-slate-900 font-bold px-6 h-12 rounded-xl shadow-glow transition-all duration-300 hover:shadow-[0_0_25px_rgba(9,251,211,0.6)] hover:-translate-y-1 active:scale-95 min-w-[88px] flex items-center justify-center;
+  }
+  .btn-secondary {
+    @apply bg-white/5 border border-white/10 text-brand-cream font-bold px-6 h-12 rounded-xl transition-all duration-300 hover:bg-white/10 hover:border-brand-teal hover:shadow-glow active:scale-95 disabled:opacity-40 min-w-[88px] flex items-center justify-center backdrop-blur-md;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-text-heading font-medium px-5 h-11 rounded-xl transition-all duration-200 hover:bg-white/5 active:scale-95 disabled:opacity-40 min-w-[88px] flex items-center justify-center;
+  }
+  .btn-icon {
+    @apply w-[44px] h-[44px] flex items-center justify-center rounded-xl transition-all duration-200 hover:bg-white/10 active:scale-95 disabled:opacity-40;
+  }
+  .panel-surface {
+    @apply bg-bg-surface backdrop-blur-xl border border-white/10 shadow-rim rounded-2xl p-6;
+  }
+  .blur-subtle {
+    @apply backdrop-blur-md bg-white/5;
+  }
+  .blur-medium {
+    @apply backdrop-blur-xl bg-black/40;
+  }
   .custom-scrollbar::-webkit-scrollbar {
     height: 8px;
     width: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
+    background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
