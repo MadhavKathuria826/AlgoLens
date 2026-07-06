@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/status-active-success.svg" />
   <img src="https://img.shields.io/badge/python-3.11-blue.svg" />
   <img src="https://img.shields.io/badge/frontend-next.js-black.svg" />
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" />
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" />
 </p>
 
 <p align="center">
