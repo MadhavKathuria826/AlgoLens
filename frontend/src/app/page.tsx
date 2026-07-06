@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useMotionValue, animate, motion, useTransform, useMotionTemplate, useScroll as useFramerScroll } from 'framer-motion';
 import { Search } from 'lucide-react';
 import StudioPage from './studio/page';
+import { CursorLight, CustomCursor, ConstellationVoid, globalPointer, ensureGlobalPointer } from './Environment';
 
 type AppState = 'landing' | 'pre-transition' | 'transition-to-studio' | 'studio' | 'transition-to-landing';
 
@@ -18,6 +19,8 @@ function TreeDemo({ appState }: { appState: AppState }) {
   const rotationY = useMotionValue(0);
   const modeRef = useRef<'scroll' | 'auto'>('scroll');
   const animRef = useRef<any>(null);
+  
+  useEffect(() => ensureGlobalPointer(), []);
   
   // Nodes data
   const nodes = [
@@ -115,6 +118,27 @@ function TreeDemo({ appState }: { appState: AppState }) {
     // Apply single source of truth rotation
     group.current.rotation.y = rotationY.get();
 
+    // Additive Cursor Tilt (X/Z axis) independent of Y-spin
+    const vec = new THREE.Vector3(globalPointer.x, globalPointer.y, 0.5);
+    vec.unproject(state.camera);
+    const dir = vec.sub(state.camera.position).normalize();
+    const distance = (group.current.position.z - state.camera.position.z) / dir.z;
+    const cursorPos = state.camera.position.clone().add(dir.multiplyScalar(distance));
+    
+    const dx = cursorPos.x - group.current.position.x;
+    const dy = cursorPos.y - group.current.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    const maxTilt = 0.2; // subtle lean limit
+    const tiltFactor = Math.max(0, 1 - dist / 5); // smooth falloff up to 5 units (close range only)
+    
+    // Tilt towards cursor
+    const targetTiltX = -dy * 0.05 * tiltFactor;
+    const targetTiltZ = dx * 0.05 * tiltFactor;
+    
+    group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, Math.max(-maxTilt, Math.min(maxTilt, targetTiltX)), 0.05);
+    group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, Math.max(-maxTilt, Math.min(maxTilt, targetTiltZ)), 0.05);
+
     // Kept centered in viewport
     group.current.position.y = 0;
     group.current.position.x = 2; // Offset slightly to the right to leave space for text
@@ -148,8 +172,20 @@ function TreeDemo({ appState }: { appState: AppState }) {
         </Sphere>
       ))}
       {edges.map((edge, i) => {
-        const start = nodes[edge[0]].pos as [number, number, number];
-        const end = nodes[edge[1]].pos as [number, number, number];
+        const parent = nodes[edge[0]];
+        const child = nodes[edge[1]];
+        
+        // Strict null safety: verify parent, child, and points exist before rendering (Step 6)
+        if (!parent || !child) return null;
+        if (!parent.pos || !child.pos) return null;
+        
+        const start = parent.pos as [number, number, number];
+        const end = child.pos as [number, number, number];
+        
+        // Ensure coordinates are valid and have 3 dimensions
+        if (!start || start.length < 3 || !end || end.length < 3) return null;
+        if (start.some(v => v === undefined || isNaN(v)) || end.some(v => v === undefined || isNaN(v))) return null;
+
         return (
           <Line 
             key={i} 
@@ -169,11 +205,16 @@ function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: 
   return (
     <>
       <color attach="background" args={['#020204']} />
-      <ambientLight intensity={0.5} />
-      <spotLight position={[10, 10, 10]} angle={0.25} penumbra={1} intensity={2} color="#00e5ff" />
-      <spotLight position={[-10, -10, -10]} angle={0.25} penumbra={1} intensity={2} color="#fe53bb" />
+      <ambientLight intensity={0.2} />
+      <spotLight position={[10, 10, 10]} angle={0.25} penumbra={1} intensity={1} color="#00e5ff" />
+      <spotLight position={[-10, -10, -10]} angle={0.25} penumbra={1} intensity={1} color="#fe53bb" />
       
-      {!reducedMotion && <Sparkles count={300} scale={15} size={2} speed={0.4} opacity={0.3} color="#09fbd3" />}
+      {!reducedMotion && (
+        <>
+          <ConstellationVoid />
+          <CursorLight />
+        </>
+      )}
       
       <TreeDemo appState={appState} />
       <Environment preset="city" />
@@ -295,28 +336,66 @@ export default function Home() {
     <>
       {/* Page 1: Hero */}
       <div className="h-screen w-full flex items-center px-[10vw]">
-        <div className="w-[90%] md:w-1/2 flex flex-col gap-6 z-10 pointer-events-auto">
-          <h1 className="text-5xl md:text-[5vw] leading-[1.1] font-bold text-white tracking-tighter drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
-            See Your Algorithms <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal to-brand-violet drop-shadow-[0_0_20px_rgba(9,251,211,0.4)]">Think.</span>
-          </h1>
-          <p className="text-lg md:text-xl text-slate-300 font-medium leading-relaxed max-w-lg drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-            A visual reasoning engine. Watch your code execute step-by-step and truly understand what happens under the hood.
-          </p>
-          <div className="flex gap-4 mt-6">
-            <button onClick={handleStudioLaunch} className="btn-primary-glow">Launch Studio</button>
+        <div className="w-[90%] md:w-1/2 flex flex-col gap-5 z-10 pointer-events-auto">
+          
+          <div className="flex flex-col overflow-hidden">
+            <motion.span 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
+              className="text-brand-teal text-sm md:text-base font-semibold tracking-[0.2em] uppercase drop-shadow-[0_0_12px_rgba(9,251,211,0.4)] mb-4"
+            >
+              The Visual Reasoning Engine
+            </motion.span>
+            
+            <motion.h1 
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.7, delay: 0.1, ease: [0.33, 1, 0.68, 1] }}
+              className="text-4xl md:text-5xl font-medium text-slate-200 tracking-tight leading-none"
+            >
+              See your algorithms
+            </motion.h1>
+            
+            <motion.h1 
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: [0.33, 1, 0.68, 1] }}
+              className="text-[4rem] md:text-[8vw] font-bold text-brand-teal tracking-tighter leading-[0.9] drop-shadow-[0_0_25px_rgba(9,251,211,0.3)] mt-2"
+            >
+              think.
+            </motion.h1>
           </div>
+
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.4 }}
+            className="text-lg md:text-xl text-slate-300 font-normal leading-relaxed max-w-lg drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mt-2"
+          >
+            Watch your data structures mutate step-by-step and finally understand exactly what your code is doing under the hood.
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            className="flex gap-4 mt-6"
+          >
+            <button onClick={handleStudioLaunch} className="btn-primary-glow">Launch Studio</button>
+          </motion.div>
         </div>
       </div>
 
       {/* Page 2: Scroll growth explainer */}
-      <div className="h-screen w-full flex items-center justify-start px-[10vw]">
-        <div className="w-[90%] md:w-1/3 flex flex-col gap-6 z-10 pointer-events-auto">
-          <div className="panel-surface !bg-black/40 !backdrop-blur-2xl border-white/10">
-            <h2 className="text-3xl font-bold text-white tracking-tight mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+      <div className="h-screen w-full flex items-center justify-start px-[10vw] relative z-10 pointer-events-none">
+        <div className="w-[90%] md:w-1/3 flex flex-col gap-6 pointer-events-auto">
+          <div className="panel-surface !bg-black/40 !backdrop-blur-2xl border-white/10 shadow-[inset_0_0_20px_rgba(255,255,255,0.05),0_0_15px_rgba(0,229,255,0.2)]">
+            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
               Visual Scale
             </h2>
-            <p className="text-base md:text-lg text-slate-300 leading-relaxed">
-              As algorithms process, they expand. Complexity becomes legible. See the shape of your logic unfold natively in 3D space.
+            <p className="text-lg md:text-xl font-normal text-slate-300 leading-relaxed">
+              As algorithms process, their footprint expands. Complexity becomes legible through clear, structural layouts that make abstract logic immediately obvious.
             </p>
           </div>
         </div>
@@ -324,7 +403,7 @@ export default function Home() {
 
       {/* Page 3: The Invitation */}
       <div className="h-screen w-full flex items-center justify-center flex-col text-center px-[10vw]">
-        <h2 className="text-4xl md:text-[4vw] font-bold text-white tracking-tight mb-8 drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
+        <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-8 drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
           Transform code into understanding.
         </h2>
         <button onClick={handleStudioLaunch} className="btn-primary-glow !h-16 !px-10 !text-xl !rounded-2xl">
@@ -335,7 +414,7 @@ export default function Home() {
   );
 
   return (
-    <div className="w-full min-h-screen bg-bg-app text-white font-sans selection:bg-brand-teal/30 relative">
+    <div className="w-full min-h-screen bg-bg-app text-white font-sans selection:bg-brand-teal/30 relative cursor-none">
       
       {/* Fallback Background (Cross-fades out when WebGL is ready) */}
       <div 
@@ -405,7 +484,7 @@ export default function Home() {
         <motion.div 
           animate={{ y: [0, 4, 0] }} 
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="pointer-events-auto hidden md:flex items-center gap-6 text-[15px] font-bold text-slate-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] will-change-transform"
+          className="pointer-events-auto hidden md:flex items-center gap-6 text-base font-medium text-slate-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] will-change-transform"
         >
           <Link href="#visualizations" className="relative group/link hover:text-white transition-all duration-300 hover:tracking-[0.02em]">
             Visualizations
@@ -414,7 +493,7 @@ export default function Home() {
           
           <span className="w-[4px] h-[4px] rounded-full bg-white/30 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></span>
           
-          <Link href="https://github.com" className="relative group/link hover:text-white transition-all duration-300 hover:tracking-[0.02em]">
+          <Link href="https://github.com/MadhavKathuria826/AlgoLens" className="relative group/link hover:text-white transition-all duration-300 hover:tracking-[0.02em]" target="_blank" rel="noopener noreferrer">
             GitHub
             <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-brand-teal scale-x-0 origin-right transition-transform duration-300 ease-out group-hover/link:scale-x-100 group-hover/link:origin-left shadow-[0_0_8px_rgba(9,251,211,0.8)] rounded-full"></span>
           </Link>
@@ -444,8 +523,12 @@ export default function Home() {
               <ReadyEvent onReady={() => setSceneReady(true)} />
             </Suspense>
           </Canvas>
+          {/* Subtle Dark Teal Vignette Overlay */}
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,15,20,0.6)_120%)] mix-blend-multiply" />
         </div>
       )}
+      
+      {!reducedMotion && <CustomCursor />}
     </div>
   );
 }
