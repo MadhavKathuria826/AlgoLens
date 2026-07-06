@@ -10,6 +10,7 @@ import { useMotionValue, animate, motion, useTransform, useMotionTemplate, useSc
 import { Search } from 'lucide-react';
 import StudioPage from './studio/page';
 import { CursorLight, CustomCursor, ConstellationVoid, globalPointer, ensureGlobalPointer, ShaderBackground } from './Environment';
+import { useSettings } from '@/contexts/SettingsContext';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -223,7 +224,7 @@ function TreeDemo({ appState }: { appState: AppState }) {
   );
 }
 
-function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: AppState }) {
+function Scene({ reducedMotion, appState, quality }: { reducedMotion: boolean, appState: AppState, quality: string }) {
   console.log('Scene rendering, reducedMotion value:', reducedMotion);
   return (
     <>
@@ -234,8 +235,8 @@ function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: 
       
       {!reducedMotion && (
         <ErrorBoundary fallback={null}>
-          <ShaderBackground />
-          <ConstellationVoid />
+          <ShaderBackground quality={quality} />
+          <ConstellationVoid quality={quality} />
           <CursorLight />
         </ErrorBoundary>
       )}
@@ -264,6 +265,7 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>('landing');
   const [webglSupported, setWebglSupported] = useState(true);
   const [sceneReady, setSceneReady] = useState(false);
+  const { settings } = useSettings();
 
   const [irisOrigin, setIrisOrigin] = useState({ x: 0, y: 0 });
   const lensRef = useRef<HTMLSpanElement>(null);
@@ -566,7 +568,7 @@ export default function Home() {
           <ErrorBoundary fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }} frameloop={appState === 'studio' ? 'never' : 'always'}>
               <Suspense fallback={null}>
-                <Scene reducedMotion={reducedMotion} appState={appState} />
+                <Scene reducedMotion={reducedMotion} appState={appState} quality={settings.graphicsQuality} />
                 <ReadyEvent onReady={() => setSceneReady(true)} />
               </Suspense>
             </Canvas>

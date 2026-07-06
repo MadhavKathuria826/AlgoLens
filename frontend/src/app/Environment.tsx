@@ -31,18 +31,17 @@ export function ensureGlobalPointer() {
 }
 
 // 1. Constellation Void (Fragments & Threads)
-export function ConstellationVoid() {
+export function ConstellationVoid({ quality = 'balanced' }: { quality?: string }) {
   useEffect(() => {
     const cleanup = ensureGlobalPointer();
-    console.log('Particle system mounted');
     return cleanup;
   }, []);
   
   const fragmentsRefs = useRef<THREE.Mesh[]>([]);
   
   const fragmentsData = useMemo(() => {
-    // Increased fragment count per spec (35-50 range)
-    return Array.from({ length: 45 }).map((_, i) => ({
+    const count = quality === 'performance' ? 15 : quality === 'cinematic' ? 75 : 45;
+    return Array.from({ length: count }).map((_, i) => ({
       id: i,
       position: new THREE.Vector3(
         (Math.random() - 0.5) * 20,
@@ -67,7 +66,10 @@ export function ConstellationVoid() {
       scale: 0.1 + Math.random() * 0.3,
       type: Math.floor(Math.random() * 3)
     }));
-  }, []);
+  }, [quality]);
+
+  const spark1 = quality === 'performance' ? 0 : quality === 'cinematic' ? 300 : 150;
+  const spark2 = quality === 'performance' ? 0 : quality === 'cinematic' ? 150 : 75;
 
   return (
     <group>
@@ -76,14 +78,14 @@ export function ConstellationVoid() {
           key={data.id} 
           data={data} 
           index={i}
-          fragmentsRefs={fragmentsRefs} 
+          fragmentsRefs={fragmentsRefs}
+          quality={quality}
         />
       ))}
-      <ConstellationLines fragmentsRefs={fragmentsRefs} />
+      <ConstellationLines fragmentsRefs={fragmentsRefs} quality={quality} />
       
-      {/* Lightweight Starfield Fog (shifted towards violet/blue to stay back) */}
-      <Sparkles count={150} scale={25} size={2} speed={0.2} opacity={0.1} color="#3b00ff" position={[0, 0, -4]} />
-      <Sparkles count={75} scale={20} size={4} speed={0.4} opacity={0.15} color="#5e10d9" position={[0, 0, 2]} />
+      {spark1 > 0 && <Sparkles count={spark1} scale={25} size={2} speed={0.2} opacity={0.1} color="#3b00ff" position={[0, 0, -4]} />}
+      {spark2 > 0 && <Sparkles count={spark2} scale={20} size={4} speed={0.4} opacity={0.15} color="#5e10d9" position={[0, 0, 2]} />}
     </group>
   );
 }
@@ -166,7 +168,7 @@ function FragmentItem({ data, index, fragmentsRefs }: any) {
   );
 }
 
-function ConstellationLines({ fragmentsRefs }: { fragmentsRefs: React.MutableRefObject<THREE.Mesh[]> }) {
+function ConstellationLines({ fragmentsRefs, quality = 'balanced' }: { fragmentsRefs: React.MutableRefObject<THREE.Mesh[]>, quality?: string }) {
   const lineGeometryRef = useRef<THREE.BufferGeometry>(null);
   const { camera } = useThree();
   const maxThreads = 12;
@@ -352,12 +354,13 @@ declare module '@react-three/fiber' {
   }
 }
 
-export function ShaderBackground() {
+export function ShaderBackground({ quality = 'balanced' }: { quality?: string }) {
   useEffect(() => { console.log('Background mounted'); }, []);
   const materialRef = useRef<any>(null);
   const logged = useRef(false);
 
   useFrame((state) => {
+    if (quality === 'performance') return;
     if (!logged.current) {
       console.log('ShaderBackground useFrame executing');
       logged.current = true;
@@ -371,6 +374,8 @@ export function ShaderBackground() {
       globalPointer.y * 0.5 + 0.5
     );
   });
+
+  if (quality === 'performance') return null;
 
   return (
     <mesh position={[0, 0, -10]}>

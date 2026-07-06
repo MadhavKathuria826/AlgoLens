@@ -1,14 +1,56 @@
 import Editor from '@monaco-editor/react';
 import { useRef, useEffect } from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 
-export default function CodeEditor({ code, onChange, activeLine }: any) {
+export default function CodeEditor({ code, onChange, activeLine, onRun }: any) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const decorationsRef = useRef<any[]>([]);
+  const { settings } = useSettings();
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Define custom themes
+    monaco.editor.defineTheme('dracula', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { background: '282a36' },
+        { token: 'keyword', foreground: 'ff79c6', fontStyle: 'bold' },
+        { token: 'identifier', foreground: 'f8f8f2' },
+        { token: 'string', foreground: 'f1fa8c' },
+        { token: 'comment', foreground: '6272a4' },
+      ],
+      colors: { 'editor.background': '#282a36' }
+    });
+
+    monaco.editor.defineTheme('monokai', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { background: '272822' },
+        { token: 'keyword', foreground: 'f92672' },
+        { token: 'string', foreground: 'e6db74' },
+        { token: 'comment', foreground: '75715e' },
+      ],
+      colors: { 'editor.background': '#272822' }
+    });
+
+    monaco.editor.defineTheme('light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: { 'editor.background': '#ffffff' }
+    });
+
+    // Auto-run on paste
+    editor.onDidPaste(() => {
+      if (settings.autoRunOnPaste && onRun) {
+        onRun();
+      }
+    });
   };
 
   useEffect(() => {
@@ -34,7 +76,7 @@ export default function CodeEditor({ code, onChange, activeLine }: any) {
       <Editor
         height="100%"
         defaultLanguage="python"
-        theme="vs-dark"
+        theme={settings.editorTheme}
         value={code}
         onChange={onChange}
         onMount={handleEditorDidMount}

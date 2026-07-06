@@ -31,6 +31,51 @@
     color: var(--color-text-body);
     @apply antialiased overflow-x-hidden;
   }
+  
+  html.light {
+    --color-bg-app: #f1f5f9;
+    --color-bg-surface: rgba(255, 255, 255, 0.7);
+    --color-text-body: #334155;
+    --color-text-heading: #0f172a;
+    --shadow-ambient: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --shadow-glow: 0 0 15px rgba(0, 229, 255, 0.2);
+  }
+
+  html.high-contrast {
+    --color-bg-app: #000000;
+    --color-bg-surface: #0a0a0a;
+    --color-text-body: #ffffff;
+    --color-text-heading: #ffffff;
+  }
+
+  html.color-blind-safe {
+    --color-brand-teal: #f4d03f;
+    --color-brand-cyan: #3498db;
+    --color-brand-coral: #8e44ad;
+    --color-brand-violet: #e67e22;
+  }
+
+  html.hide-value-labels .node-value {
+    display: none !important;
+  }
+
+  html.hide-index-annotations .index-annotation,
+  html.hide-index-annotations .node-index,
+  html.hide-index-annotations .depth-annotation {
+    display: none !important;
+  }
+
+  html.node-size-small .node-core,
+  html.node-size-small .node-shape,
+  html.node-size-small .tree-node {
+    transform: scale(0.75);
+  }
+
+  html.node-size-large .node-core,
+  html.node-size-large .node-shape,
+  html.node-size-large .tree-node {
+    transform: scale(1.25);
+  }
 }
 
 @layer utilities {

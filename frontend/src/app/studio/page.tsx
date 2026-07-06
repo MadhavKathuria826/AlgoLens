@@ -9,14 +9,23 @@ import Timeline from '@/components/Timeline';
 import axios from 'axios';
 import { Play, RotateCcw, StepForward, StepBack, Loader2, Pause, SkipBack } from 'lucide-react';
 import { SemanticAnalyzer } from '@/utils/semanticAnalyzer';
+import ThemePopover from '@/components/ThemePopover';
+import ExportButton from '@/components/ExportButton';
+import SettingsModal from '@/components/SettingsModal';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export default function Studio({ onBack }: { onBack?: () => void }) {
   const [code, setCode] = useState(`def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nresult = factorial(3)`);
   const [steps, setSteps] = useState<any[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const { settings, updateSettings } = useSettings();
+  
+  // Local session override for playback speed, initialized from settings default
+  const [playbackSpeed, setPlaybackSpeed] = useState(() => 
+    settings.animationSpeed === 'slow' ? 0.5 : settings.animationSpeed === 'fast' ? 2 : 1
+  );
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -42,7 +51,12 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
     setIsLoading(true);
     setIsPlaying(false);
     try {
-      const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { code });
+      const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { 
+        code, 
+        max_recursion_depth: settings.maxRecursionDepth 
+      }, {
+        timeout: settings.executionTimeoutMs,
+      });
       if (res.data.error) {
         setSteps([{
           step_number: 1,
@@ -155,8 +169,18 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
         setSteps(stepsWithSemantics);
         setCurrentStepIdx(0);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.code === 'ECONNABORTED' || (err.message && err.message.includes('timeout'))) {
+        setSteps([{
+          step_number: 1,
+          line_number: 0,
+          event_type: 'error',
+          locals: {},
+          visualizations: [{ type: 'Error', details: { msg: `Execution timed out after ${settings.executionTimeoutMs / 1000} seconds. You might have an infinite loop or recursion.` } }]
+        }]);
+        setCurrentStepIdx(0);
+      }
     }
     setIsLoading(false);
   };
@@ -185,9 +209,9 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
           <span className="text-slate-300 font-medium">Studio</span>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-ghost">Theme</button>
-          <button className="btn-ghost">Export</button>
-          <button className="btn-ghost">Settings</button>
+          <ThemePopover />
+          <ExportButton disabled={steps.length === 0} />
+          <SettingsModal />
         </div>
       </nav>
 
@@ -276,7 +300,12 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
           <div className="w-[30%] panel-surface flex flex-col !p-0 overflow-hidden">
             <div className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 bg-bg-surface z-10">Code Editor</div>
             <div className="flex-1 overflow-hidden relative bg-bg-surface">
-               <CodeEditor code={code} onChange={(val: string | undefined) => setCode(val || '')} activeLine={currentStep?.line_number} />
+              <CodeEditor 
+                code={code} 
+                onChange={(val: string | undefined) => setCode(val || '')} 
+                activeLine={currentStep?.line_number}
+                onRun={handleRun}
+              />
             </div>
           </div>
 

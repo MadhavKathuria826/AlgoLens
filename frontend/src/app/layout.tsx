@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'A visual reasoning engine for Python',
 }
 
+import { SettingsProvider } from '@/contexts/SettingsContext'
+
 export default function RootLayout({
   children,
 }: {
@@ -17,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} custom-scrollbar`}>
-        {children}
+        <SettingsProvider>
+          {children}
+        </SettingsProvider>
       </body>
     </html>
   )

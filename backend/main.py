@@ -24,7 +24,7 @@ def execute_code(request: CodeExecutionRequest):
         
     tracer = Tracer()
     try:
-        steps = tracer.run_code(request.code)
+        steps = tracer.run_code(request.code, request.max_recursion_depth)
         return CodeExecutionResponse(steps=steps)
     except Exception as e:
         return CodeExecutionResponse(steps=[], error=str(e))

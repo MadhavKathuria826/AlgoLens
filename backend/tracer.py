@@ -60,6 +60,9 @@ class Tracer:
                 self.call_id_counter += 1
                 parent_id = self.call_stack[-1]['id'] if self.call_stack else None
                 
+                if len(self.call_stack) >= getattr(self, 'max_depth', 1000):
+                    raise ValueError(f"Maximum recursion depth of {self.max_depth} exceeded. Please check your algorithm or increase the limit in Settings.")
+                
                 self.call_stack.append({
                     'func': func_name, 
                     'args': args, 
@@ -235,7 +238,8 @@ class Tracer:
             
         return self.trace_calls
 
-    def run_code(self, code: str) -> List[Step]:
+    def run_code(self, code: str, max_depth: int = 1000) -> List[Step]:
+        self.max_depth = max_depth
         self.steps = []
         self.step_counter = 0
         self.original_frame_count = 0

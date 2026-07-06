@@ -99,3 +99,4 @@ With the current Heap/Array system, the unified `GraphTreeRenderer` now rock-sol
 *   **Tries** 
 
 These will cleanly slot into the existing architecture by writing thin adapters that calculate standard node positions and pipe them directly into `GraphTreeRenderer`.
+Updated buttons and settings 

@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 
 class CodeExecutionRequest(BaseModel):
     code: str
+    max_recursion_depth: Optional[int] = 1000
 
 class VisualizationData(BaseModel):
     type: str # 'Array', 'Recursion', 'Loop', 'Condition', 'Function', 'Variable'
