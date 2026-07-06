@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import CodeEditor from '@/components/CodeEditor';
 import VisualizationCanvas from '@/components/VisualizationCanvas';
 import ExplanationPanel from '@/components/ExplanationPanel';
@@ -9,7 +10,7 @@ import axios from 'axios';
 import { Play, RotateCcw, StepForward, StepBack, Loader2, Pause, SkipBack } from 'lucide-react';
 import { SemanticAnalyzer } from '@/utils/semanticAnalyzer';
 
-export default function Studio() {
+export default function Studio({ onBack }: { onBack?: () => void }) {
   const [code, setCode] = useState(`def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nresult = factorial(3)`);
   const [steps, setSteps] = useState<any[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -41,7 +42,7 @@ export default function Studio() {
     setIsLoading(true);
     setIsPlaying(false);
     try {
-      const res = await axios.post('http://localhost:8000/api/execute', { code });
+      const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { code });
       if (res.data.error) {
         setSteps([{
           step_number: 1,
@@ -164,114 +165,144 @@ export default function Studio() {
   const previousStep = currentStepIdx > 0 ? steps[currentStepIdx - 1] : null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Top Controls */}
-      <div className="glass rounded-none border-t-0 border-l-0 border-r-0 border-b-white/10 p-2 flex items-center justify-between z-10 shrink-0 bg-black/40">
-        <div className="flex items-center gap-2 px-4">
-          <button 
-            onClick={handleRun}
-            disabled={isLoading}
-            className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+    <div className="flex flex-col h-screen overflow-hidden bg-bg-app text-text-body font-sans">
+      {/* Global App Navigation Bar */}
+      <nav className="h-[72px] w-full flex items-center justify-between px-6 bg-bg-surface border-b border-white/5 shrink-0 z-50">
+        <div className="flex items-center gap-4">
+          <Link 
+            href="/" 
+            onClick={(e) => {
+              if (onBack) {
+                e.preventDefault();
+                onBack();
+              }
+            }}
+            className="text-xl font-bold tracking-tight text-brand-teal"
           >
-            {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Play className="w-4 h-4" />}
-            Run Execution
-          </button>
-          
-          {steps.length > 0 && (
-            <div className="flex items-center gap-2 border-l border-white/10 pl-4 ml-2">
-              <button
-                onClick={() => {
-                  if (currentStepIdx >= steps.length - 1) {
-                    setCurrentStepIdx(0);
-                    setIsPlaying(true);
-                  } else {
-                    setIsPlaying(!isPlaying);
-                  }
-                }}
-                className={`px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors ${isPlaying ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}
-              >
-                {isPlaying ? <><Pause className="w-4 h-4" /> Pause</> : <><Play className="w-4 h-4" /> Play</>}
-              </button>
-              
-              <button 
-                onClick={() => { setIsPlaying(false); setCurrentStepIdx(p => Math.max(0, p - 1)); }}
-                className="bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors"
-                title="Previous Step"
-              >
-                <StepBack className="w-4 h-4" /> Prev
-              </button>
-              
-              <button 
-                onClick={() => { setIsPlaying(false); setCurrentStepIdx(p => Math.min(steps.length - 1, p + 1)); }}
-                className="bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors"
-                title="Next Step"
-              >
-                Next <StepForward className="w-4 h-4" />
-              </button>
-              
-              <button 
-                onClick={() => { setIsPlaying(false); setCurrentStepIdx(0); }}
-                className="bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors"
-                title="Reset to Start"
-              >
-                <SkipBack className="w-4 h-4" /> Reset
-              </button>
+            AlgoLens
+          </Link>
+          <div className="h-4 w-px bg-white/10 mx-2" />
+          <span className="text-slate-300 font-medium">Studio</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="btn-ghost">Theme</button>
+          <button className="btn-ghost">Export</button>
+          <button className="btn-ghost">Settings</button>
+        </div>
+      </nav>
 
-              <div className="flex items-center bg-black/40 rounded-md border border-white/10 ml-2 overflow-hidden">
-                {[0.5, 1, 2, 4].map(speed => (
-                  <button
-                    key={speed}
-                    onClick={() => setPlaybackSpeed(speed)}
-                    className={`px-2 py-1.5 text-xs font-mono transition-colors ${playbackSpeed === speed ? 'bg-blue-500/30 text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'}`}
-                  >
-                    {speed}x
-                  </button>
-                ))}
+      <div className="flex flex-col flex-1 overflow-hidden p-6 gap-6">
+        {/* Top Controls (not in navbar) */}
+        <div className="panel-surface py-3 px-6 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleRun}
+              disabled={isLoading}
+              className="btn-primary gap-2"
+            >
+              {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <Play className="w-5 h-5" />}
+              Run
+            </button>
+            
+            {steps.length > 0 && (
+              <div className="flex items-center gap-2 border-l border-white/10 pl-4">
+                <button
+                  onClick={() => {
+                    if (currentStepIdx >= steps.length - 1) {
+                      setCurrentStepIdx(0);
+                      setIsPlaying(true);
+                    } else {
+                      setIsPlaying(!isPlaying);
+                    }
+                  }}
+                  className="btn-secondary gap-2"
+                >
+                  {isPlaying ? <><Pause className="w-5 h-5" /> Pause</> : <><Play className="w-5 h-5" /> Play</>}
+                </button>
+                
+                <button 
+                  onClick={() => { setIsPlaying(false); setCurrentStepIdx(p => Math.max(0, p - 1)); }}
+                  className="btn-icon bg-bg-app border border-white/5 hover:border-brand-teal"
+                  title="Previous Step"
+                >
+                  <StepBack className="w-5 h-5 text-text-heading" />
+                </button>
+                
+                <button 
+                  onClick={() => { setIsPlaying(false); setCurrentStepIdx(p => Math.min(steps.length - 1, p + 1)); }}
+                  className="btn-icon bg-bg-app border border-white/5 hover:border-brand-teal"
+                  title="Next Step"
+                >
+                  <StepForward className="w-5 h-5 text-text-heading" />
+                </button>
+                
+                <button 
+                  onClick={() => { setIsPlaying(false); setCurrentStepIdx(0); }}
+                  className="btn-ghost gap-2 text-slate-400"
+                  title="Reset to Start"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center bg-bg-app rounded-xl border border-white/5 overflow-hidden ml-2">
+                  {[0.5, 1, 2, 4].map(speed => (
+                    <button
+                      key={speed}
+                      onClick={() => setPlaybackSpeed(speed)}
+                      className={`px-3 py-2 text-sm font-mono transition-colors ${playbackSpeed === speed ? 'bg-brand-teal/20 text-brand-teal font-semibold' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <button 
-            onClick={() => { setSteps([]); setCurrentStepIdx(0); setIsPlaying(false); }}
-            className="bg-white/5 hover:bg-white/10 px-4 py-1.5 rounded-md flex items-center gap-2 text-sm font-medium transition-colors text-red-400 ml-4 border border-red-500/20"
-          >
-            <RotateCcw className="w-4 h-4" /> Clear
-          </button>
-        </div>
-        <div className="text-xs text-slate-500 px-4 font-mono">
-          {steps.length > 0 ? `Step ${currentStepIdx + 1} of ${steps.length}` : 'Ready'}
-        </div>
-      </div>
-
-      {/* Main 3-Column Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Code Editor */}
-        <div className="w-1/3 border-r border-white/10 flex flex-col min-w-[300px]">
-          <div className="px-4 py-2 text-xs font-semibold tracking-wider text-slate-500 uppercase bg-black/20">Code Editor</div>
-          <div className="flex-1 overflow-hidden relative bg-[#1e1e1e]">
-             <CodeEditor code={code} onChange={(val: string | undefined) => setCode(val || '')} activeLine={currentStep?.line_number} />
+            <button 
+              onClick={() => { setSteps([]); setCurrentStepIdx(0); setIsPlaying(false); }}
+              className="btn-ghost gap-2 text-brand-coral hover:bg-brand-coral/10 ml-4"
+            >
+              <RotateCcw className="w-4 h-4" /> Clear
+            </button>
+          </div>
+          <div className="text-sm text-slate-500 font-mono">
+            {steps.length > 0 ? `Step ${currentStepIdx + 1} of ${steps.length}` : 'Ready'}
           </div>
         </div>
 
-        {/* Center: Canvas */}
-        <div className="flex-1 flex flex-col relative bg-[#050508] overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 px-4 py-2 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 bg-black/20 border-b border-white/5">Visualization</div>
-          <VisualizationCanvas step={currentStep} code={code} />
+        {/* Main 3-Column Layout */}
+        <div className="flex-1 flex gap-6 overflow-hidden">
+          {/* Left: Code Editor */}
+          <div className="w-[30%] panel-surface flex flex-col !p-0 overflow-hidden">
+            <div className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 bg-bg-surface z-10">Code Editor</div>
+            <div className="flex-1 overflow-hidden relative bg-bg-surface">
+               <CodeEditor code={code} onChange={(val: string | undefined) => setCode(val || '')} activeLine={currentStep?.line_number} />
+            </div>
+          </div>
+
+          {/* Center: Canvas */}
+          <div className="flex-1 panel-surface flex flex-col !p-0 relative overflow-hidden bg-bg-app">
+            <div className="absolute top-0 left-0 right-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm">Visualization</div>
+            <VisualizationCanvas step={currentStep} code={code} />
+          </div>
+
+          {/* Right: Inspector */}
+          <div className="w-[25%] panel-surface flex flex-col !p-0 overflow-hidden">
+            <div className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 bg-bg-surface z-10">Inspector</div>
+            <div className="flex-1 overflow-auto bg-bg-surface">
+              <ExplanationPanel code={code} step={currentStep} previousStep={previousStep} />
+            </div>
+          </div>
         </div>
 
-        {/* Right: Inspector */}
-        <div className="w-80 border-l border-white/10 flex flex-col bg-black/20 shrink-0">
-          <ExplanationPanel code={code} step={currentStep} previousStep={previousStep} />
+        {/* Bottom: Timeline */}
+        <div className="h-32 panel-surface !p-0 flex flex-col overflow-hidden shrink-0">
+          <Timeline 
+            steps={steps} 
+            currentIndex={currentStepIdx} 
+            onNavigate={setCurrentStepIdx} 
+          />
         </div>
-      </div>
-
-      {/* Bottom: Timeline */}
-      <div className="h-48 glass rounded-none border-b-0 border-l-0 border-r-0 border-t-white/10 shrink-0 bg-black/40">
-        <Timeline 
-          steps={steps} 
-          currentIndex={currentStepIdx} 
-          onNavigate={setCurrentStepIdx} 
-        />
       </div>
     </div>
   );

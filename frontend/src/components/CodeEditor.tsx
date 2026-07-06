@@ -3,17 +3,19 @@ import { useRef, useEffect } from 'react';
 
 export default function CodeEditor({ code, onChange, activeLine }: any) {
   const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
   const decorationsRef = useRef<any[]>([]);
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
   };
 
   useEffect(() => {
-    if (editorRef.current && activeLine) {
+    if (editorRef.current && monacoRef.current && activeLine) {
       decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, [
         {
-          range: new (window as any).monaco.Range(activeLine, 1, activeLine, 1),
+          range: new monacoRef.current.Range(activeLine, 1, activeLine, 1),
           options: {
             isWholeLine: true,
             className: 'bg-blue-500/20 border-l-4 border-blue-500',

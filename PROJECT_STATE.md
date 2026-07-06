@@ -57,11 +57,18 @@ Animations are strictly controlled to prevent layout distortion:
 
 ### Frontend Components (`/frontend/src/components/`)
 *   `VisualizationCanvas.tsx`: The primary orchestrator handling canvas state and component routing.
+*   `CodeEditor.tsx`: Monaco Editor Python syntax and active line highlighter.
 *   `visualizers/GraphTreeRenderer.tsx`: The highly-optimized master rendering engine for trees and heaps.
 *   `visualizers/HeapVisualizer.tsx`: The topology adapter bridging a 1D array into the GraphTreeRenderer.
 *   `visualizers/TreeVisualizer.tsx`: The topology adapter for object-based trees.
 *   `visualizers/ArrayVisualizer.tsx`: Standard 1D flexbox array rendering.
 *   *(Other Visualizers)*: `StackVisualizer.tsx`, `QueueVisualizer.tsx`, `DequeVisualizer.tsx`, `LinkedListVisualizer.tsx`.
+
+### Core Application pages (`/frontend/src/app/`)
+*   `page.tsx`: The landing page layout, Canvas error boundary, routing controls, and iris reveal animation.
+*   `Environment.tsx`: Custom Cursor, CursorLight, Constellation particle field wrapper, and R3F material extend handlers.
+*   `shaders.ts`: The background warper simplex noise GLSL shaders.
+*   `studio/page.tsx`: The main Studio workspace UI and execution handler.
 
 ### Logic & Types
 *   `/frontend/src/utils/semanticAnalyzer.ts`: The behavioral heuristics engine.
@@ -69,9 +76,24 @@ Animations are strictly controlled to prevent layout distortion:
 
 ---
 
-## 5. Upcoming Roadmap
+## 5. WebGL & Deployment Audit (LAN/Mobile Support)
 
-With the current Heap/Array system and the unified `GraphTreeRenderer` now rock-solid, the next planned targets according to previous project goals are:
+We recently identified and resolved several critical runtime and layout failures that occurred when accessing the visualizer over a Local Area Network (LAN IP) or from mobile/touch-enabled devices:
+
+1. **Shader NaN Resolution**: Fixed a divide-by-zero risk in `shaders.ts` where calling `normalize(uCursor - uv)` with a static or uninitialized cursor generated `NaN` vectors on the GPU, causing the background shader to crash and render blank.
+2. **Turbopack Tree-Shaking Guard**: Added explicit client-side Three.js `extend({ BackgroundShaderMaterial })` in `Environment.tsx` to prevent Next.js from shaking off custom shader classes during production compilation.
+3. **Monaco Editor Navigation Stability**: Bypassed race conditions where `CodeEditor.tsx` tried to reference `window.monaco.Range` during fast route changes before the Monaco bundle was fully registered. It now uses a local reference `monacoRef` initialized inside `onMount`.
+4. **Resilience to Asset CDN Blocks**: Wrapped `<EnvLogger />` (which relies on external CDNs for HDR presets) in a React `<ErrorBoundary fallback={null}>` to prevent network blocks, Pi-holes, or DNS failures on local Wi-Fi from crashing the whole Canvas render loop.
+5. **Interactive Pointer Event Alignment**: Changed custom cursor position trackers from mouse-only (`mousemove`, `mouseover`) to pointer events (`pointermove`, `pointerover`) to support touchscreen inputs on LAN tablets and mobile phones.
+6. **Mobile WebKit Prefixes**: Integrated `-webkit-backdrop-filter` for logo lens blurs and added `will-change: clip-path` + `transform: translateZ(0)` hardware acceleration tags to the Studio page transition overlay to fix WebKit layout render freezes.
+7. **Animation Throttling Fallback**: Built in robust fallback timeouts (4s) to the transition animation. If mobile browsers throttle `requestAnimationFrame` (e.g., in battery-saver mode), the router forces navigation to prevent users from getting stuck.
+8. **WebGL Thread Throttling**: Added dynamic `frameloop={appState === 'studio' ? 'never' : 'always'}` to the `<Canvas>` wrapper to pause rendering while in the code editor, freeing GPU resources and extending mobile battery life.
+
+---
+
+## 6. Upcoming Roadmap
+
+With the current Heap/Array system, the unified `GraphTreeRenderer` now rock-solid, and remote LAN/Mobile execution completely stabilized, the next planned targets are:
 *   **AVL Trees**
 *   **Red-Black Trees**
 *   **Tries** 

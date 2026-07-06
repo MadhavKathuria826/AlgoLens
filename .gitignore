@@ -108,3 +108,36 @@ out/
 .vercel
 *.pem
 next-env.d.ts
+
+# =========================
+# 6. Temporary & Irrelevant Assets (Docs, Archives, Executables)
+# =========================
+# Office Documents
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.pptx
+*.ppt
+*.pdf
+
+# Archives and Packages
+*.zip
+*.tar.gz
+*.tar
+*.gz
+*.rar
+*.7z
+*.tgz
+
+# OS / Executable Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.msi
+
+# Browser profiling and playwright test profiles
+/edge-profile-lan/
+.playwright/
+
