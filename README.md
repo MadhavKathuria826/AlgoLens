@@ -134,12 +134,13 @@ cd backend
 
 pip install -r requirements.txt
 
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Backend runs at:
 ```
-http://127.0.0.1:8000
+http://127.0.0.1:8000 (Localhost)
+http://<LAN_IP>:8000 (LAN access)
 ```
 
 ---
