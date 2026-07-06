@@ -65,7 +65,7 @@ export const BackgroundShaderMaterial = shaderMaterial(
       
       // Cursor distortion (gravitational pull)
       float distToCursor = distance(uv, uCursor);
-      vec2 dirToCursor = normalize(uCursor - uv);
+      vec2 dirToCursor = distToCursor > 0.0001 ? normalize(uCursor - uv) : vec2(0.0);
       float pull = smoothstep(0.5, 0.0, distToCursor) * 0.1;
       uv += dirToCursor * pull;
       

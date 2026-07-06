@@ -6,20 +6,37 @@ import { useMotionValue, useSpring, motion } from 'framer-motion';
 
 // Global Pointer Tracker (bypasses canvas pointer-events: none)
 export const globalPointer = new THREE.Vector2(0, 0);
-let pointerListenerAdded = false;
+let pointerListenerCount = 0;
+let globalPointerHandler: ((e: PointerEvent) => void) | null = null;
 
 export function ensureGlobalPointer() {
-  if (typeof window === 'undefined' || pointerListenerAdded) return;
-  pointerListenerAdded = true;
-  window.addEventListener('mousemove', (e) => {
-    globalPointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-    globalPointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  });
+  if (typeof window === 'undefined') return () => {};
+  
+  pointerListenerCount++;
+  if (pointerListenerCount === 1) {
+    globalPointerHandler = (e: PointerEvent) => {
+      globalPointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      globalPointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener('pointermove', globalPointerHandler);
+  }
+  
+  return () => {
+    pointerListenerCount--;
+    if (pointerListenerCount === 0 && globalPointerHandler) {
+      window.removeEventListener('pointermove', globalPointerHandler);
+      globalPointerHandler = null;
+    }
+  };
 }
 
 // 1. Constellation Void (Fragments & Threads)
 export function ConstellationVoid() {
-  useEffect(() => ensureGlobalPointer(), []);
+  useEffect(() => {
+    const cleanup = ensureGlobalPointer();
+    console.log('Particle system mounted');
+    return cleanup;
+  }, []);
   
   const fragmentsRefs = useRef<THREE.Mesh[]>([]);
   
@@ -75,6 +92,7 @@ function FragmentItem({ data, index, fragmentsRefs }: any) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const { camera } = useThree();
+  const logged = useRef(false);
 
   useEffect(() => {
     if (meshRef.current) {
@@ -83,6 +101,10 @@ function FragmentItem({ data, index, fragmentsRefs }: any) {
   }, [index, fragmentsRefs]);
 
   useFrame(() => {
+    if (!logged.current) {
+      console.log('FragmentItem useFrame executing');
+      logged.current = true;
+    }
     if (!meshRef.current) return;
     
     // Base drift
@@ -207,18 +229,25 @@ export function CursorLight() {
   const lightRef = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
   const { viewport, scene } = useThree();
+  const logged = useRef(false);
 
   useEffect(() => {
+    const cleanup = ensureGlobalPointer();
     scene.add(targetRef.current);
     if (lightRef.current) {
       lightRef.current.target = targetRef.current;
     }
     return () => {
+      cleanup();
       scene.remove(targetRef.current);
     };
   }, [scene]);
 
   useFrame(() => {
+    if (!logged.current) {
+      console.log('CursorLight useFrame executing');
+      logged.current = true;
+    }
     if (!lightRef.current || !targetRef.current) return;
     
     // Using globalPointer to bypass pointer-events: none
@@ -253,6 +282,7 @@ export function CursorLight() {
 
 // 3. Custom Cursor (HTML Overlay)
 export function CustomCursor() {
+  useEffect(() => { console.log('Cursor mounted'); }, []);
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
   
@@ -264,12 +294,12 @@ export function CustomCursor() {
   const scaleSpring = useSpring(scale, springConfig);
 
   useEffect(() => {
-    const moveCursor = (e: MouseEvent) => {
+    const moveCursor = (e: PointerEvent) => {
       cursorX.set(e.clientX - 16);
       cursorY.set(e.clientY - 16);
     };
     
-    const handleMouseOver = (e: MouseEvent) => {
+    const handlePointerOver = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('a, button, [role="button"], .group')) {
         scale.set(1.8);
@@ -278,19 +308,19 @@ export function CustomCursor() {
       }
     };
     
-    const handleMouseDown = () => scale.set(0.8);
-    const handleMouseUp = () => scale.set(1);
+    const handlePointerDown = () => scale.set(0.8);
+    const handlePointerUp = () => scale.set(1);
 
-    window.addEventListener('mousemove', moveCursor);
-    window.addEventListener('mouseover', handleMouseOver);
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', moveCursor);
+    window.addEventListener('pointerover', handlePointerOver);
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
     
     return () => {
-      window.removeEventListener('mousemove', moveCursor);
-      window.removeEventListener('mouseover', handleMouseOver);
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', moveCursor);
+      window.removeEventListener('pointerover', handlePointerOver);
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, []);
 
@@ -306,5 +336,46 @@ export function CustomCursor() {
         backgroundColor: 'rgba(9, 251, 211, 0.1)',
       }}
     />
+  );
+}
+
+// 4. Shader Background
+import { BackgroundShaderMaterial } from './shaders';
+import { extend } from '@react-three/fiber';
+
+// Explicitly register material here to prevent Next.js/Turbopack tree-shaking
+extend({ BackgroundShaderMaterial });
+
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    backgroundShaderMaterial: any;
+  }
+}
+
+export function ShaderBackground() {
+  useEffect(() => { console.log('Background mounted'); }, []);
+  const materialRef = useRef<any>(null);
+  const logged = useRef(false);
+
+  useFrame((state) => {
+    if (!logged.current) {
+      console.log('ShaderBackground useFrame executing');
+      logged.current = true;
+    }
+    if (!materialRef.current) return;
+    materialRef.current.uTime = state.clock.elapsedTime;
+    
+    // Map global pointer (-1 to 1) to UV space (0 to 1)
+    materialRef.current.uCursor.set(
+      globalPointer.x * 0.5 + 0.5,
+      globalPointer.y * 0.5 + 0.5
+    );
+  });
+
+  return (
+    <mesh position={[0, 0, -10]}>
+      <planeGeometry args={[100, 100]} />
+      <backgroundShaderMaterial ref={materialRef} />
+    </mesh>
   );
 }

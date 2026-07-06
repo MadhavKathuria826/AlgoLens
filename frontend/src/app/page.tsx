@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, Suspense } from 'react';
+import React, { useRef, useState, useEffect, Suspense, Component } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ScrollControls, Scroll, Sparkles, Sphere, Line, useScroll, Environment, MeshTransmissionMaterial, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,7 +9,29 @@ import { useRouter } from 'next/navigation';
 import { useMotionValue, animate, motion, useTransform, useMotionTemplate, useScroll as useFramerScroll } from 'framer-motion';
 import { Search } from 'lucide-react';
 import StudioPage from './studio/page';
-import { CursorLight, CustomCursor, ConstellationVoid, globalPointer, ensureGlobalPointer } from './Environment';
+import { CursorLight, CustomCursor, ConstellationVoid, globalPointer, ensureGlobalPointer, ShaderBackground } from './Environment';
+
+class ErrorBoundary extends Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+function EnvLogger() {
+  useEffect(() => { console.log('Environment mounted'); }, []);
+  return <Environment preset="city" />;
+}
 
 type AppState = 'landing' | 'pre-transition' | 'transition-to-studio' | 'studio' | 'transition-to-landing';
 
@@ -202,6 +224,7 @@ function TreeDemo({ appState }: { appState: AppState }) {
 }
 
 function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: AppState }) {
+  console.log('Scene rendering, reducedMotion value:', reducedMotion);
   return (
     <>
       <color attach="background" args={['#020204']} />
@@ -210,14 +233,19 @@ function Scene({ reducedMotion, appState }: { reducedMotion: boolean, appState: 
       <spotLight position={[-10, -10, -10]} angle={0.25} penumbra={1} intensity={1} color="#fe53bb" />
       
       {!reducedMotion && (
-        <>
+        <ErrorBoundary fallback={null}>
+          <ShaderBackground />
           <ConstellationVoid />
           <CursorLight />
-        </>
+        </ErrorBoundary>
       )}
       
       <TreeDemo appState={appState} />
-      <Environment preset="city" />
+      <ErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <EnvLogger />
+        </Suspense>
+      </ErrorBoundary>
     </>
   );
 }
@@ -230,6 +258,7 @@ function ReadyEvent({ onReady }: { onReady: () => void }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [appState, setAppState] = useState<AppState>('landing');
@@ -254,7 +283,7 @@ export default function Home() {
   const handleBack = () => {
     if (reducedMotion) {
       setAppState('landing');
-      window.history.pushState({}, '', '/');
+      router.push('/');
       return;
     }
     
@@ -264,14 +293,21 @@ export default function Home() {
     }
     
     setAppState('transition-to-landing');
-    window.history.pushState({}, '', '/');
+    
+    const forceLandingRoute = setTimeout(() => {
+      setAppState('landing');
+      irisRadius.set(0);
+      router.push('/');
+    }, 4000); // 4 seconds fallback for 3s animation
     
     animate(irisRadius, 12, {
       duration: 3.0,
       ease: [0.34, 1.1, 0.64, 1], // overshoot settle
       onComplete: () => {
+        clearTimeout(forceLandingRoute);
         setAppState('landing');
         irisRadius.set(0);
+        router.push('/');
       }
     });
   };
@@ -288,7 +324,9 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
+    console.log('Lens mounted');
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    console.log('window.matchMedia("(prefers-reduced-motion: reduce)").matches:', mediaQuery.matches);
     setReducedMotion(mediaQuery.matches);
     
     try {
@@ -305,7 +343,7 @@ export default function Home() {
 
     if (reducedMotion) {
       setAppState('studio');
-      window.history.pushState({}, '', '/studio');
+      router.push('/studio');
       return;
     }
     
@@ -321,12 +359,19 @@ export default function Home() {
     
     setTimeout(() => {
       setAppState('transition-to-studio');
+      
+      const forceStudioRoute = setTimeout(() => {
+        setAppState('studio');
+        router.push('/studio');
+      }, 4500); // 4.5 seconds fallback for 3.5s animation
+      
       animate(irisRadius, getMaxRadius(), {
         duration: 3.5, // Cinematic slow pace
         ease: [0.34, 1.1, 0.64, 1],
         onComplete: () => {
+          clearTimeout(forceStudioRoute);
           setAppState('studio');
-          window.history.pushState({}, '', '/studio');
+          router.push('/studio');
         }
       });
     }, 150);
@@ -406,7 +451,7 @@ export default function Home() {
         <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-8 drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
           Transform code into understanding.
         </h2>
-        <button onClick={handleStudioLaunch} className="btn-primary-glow !h-16 !px-10 !text-xl !rounded-2xl">
+        <button onClick={handleStudioLaunch} className="btn-primary-glow !h-16 !px-10 !text-xl !rounded-2xl pointer-events-auto">
           Launch Studio
         </button>
       </div>
@@ -427,7 +472,7 @@ export default function Home() {
       {appState !== 'landing' && !reducedMotion && (
         <motion.div 
           className="fixed inset-0 z-[200] pointer-events-auto overflow-hidden bg-bg-app"
-          style={{ clipPath: irisClipPath }}
+          style={{ clipPath: irisClipPath, willChange: 'clip-path', transform: 'translateZ(0)' }}
         >
           <StudioPage onBack={handleBack} />
         </motion.div>
@@ -444,6 +489,7 @@ export default function Home() {
             top: ringY,
             border: '3px solid rgba(9, 251, 211, 0.8)',
             backdropFilter: 'blur(8px) brightness(1.2)',
+            WebkitBackdropFilter: 'blur(8px) brightness(1.2)',
             WebkitMaskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
             maskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
             boxShadow: '0 0 30px rgba(9,251,211,0.5), inset 0 0 30px rgba(9,251,211,0.5)',
@@ -452,7 +498,7 @@ export default function Home() {
       )}
 
       {/* Landing Page Content (Blurred during transition, native scrolling) */}
-      <motion.div className="w-full relative z-10" style={{ filter: landingFilter }}>
+      <motion.div className="w-full relative z-10 pointer-events-none" style={{ filter: landingFilter }}>
         <Content />
       </motion.div>
 
@@ -470,7 +516,7 @@ export default function Home() {
               ref={lensRef}
               className={`relative inline-flex items-center justify-center mx-[1px] w-[1em] h-[1em] transition-all duration-150 ${appState === 'pre-transition' ? 'text-brand-teal scale-125 drop-shadow-[0_0_20px_#09fbd3]' : 'group-hover:text-brand-teal'}`}
             >
-              <span className="absolute top-[12.5%] left-[12.5%] w-[66.6%] h-[66.6%] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[inset_0_0_8px_rgba(9,251,211,0.6)]" style={{ backdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)' }}></span>
+              <span className="absolute top-[12.5%] left-[12.5%] w-[66.6%] h-[66.6%] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[inset_0_0_8px_rgba(9,251,211,0.6)]" style={{ backdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)', WebkitBackdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)' }}></span>
               <Search 
                 className={`absolute inset-0 w-full h-full z-10 transition-transform duration-[2000ms] ease-out origin-bottom-right ${appState !== 'landing' ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`} 
                 strokeWidth={3} 
@@ -516,13 +562,15 @@ export default function Home() {
 
       {/* 3D Background Canvas */}
       {isClient && webglSupported && (
-        <div className="fixed inset-0 z-0 pointer-events-none">
-          <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }}>
-            <Suspense fallback={null}>
-              <Scene reducedMotion={reducedMotion} appState={appState} />
-              <ReadyEvent onReady={() => setSceneReady(true)} />
-            </Suspense>
-          </Canvas>
+        <div className="fixed inset-0 z-0">
+          <ErrorBoundary fallback={null}>
+            <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }} frameloop={appState === 'studio' ? 'never' : 'always'}>
+              <Suspense fallback={null}>
+                <Scene reducedMotion={reducedMotion} appState={appState} />
+                <ReadyEvent onReady={() => setSceneReady(true)} />
+              </Suspense>
+            </Canvas>
+          </ErrorBoundary>
           {/* Subtle Dark Teal Vignette Overlay */}
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,15,20,0.6)_120%)] mix-blend-multiply" />
         </div>

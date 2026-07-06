@@ -42,7 +42,7 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
     setIsLoading(true);
     setIsPlaying(false);
     try {
-      const res = await axios.post('http://localhost:8000/api/execute', { code });
+      const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { code });
       if (res.data.error) {
         setSteps([{
           step_number: 1,
