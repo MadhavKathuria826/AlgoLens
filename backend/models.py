@@ -4,6 +4,8 @@ from typing import List, Dict, Any, Optional
 class CodeExecutionRequest(BaseModel):
     code: str
     max_recursion_depth: Optional[int] = 1000
+    test_case: Optional[str] = None
+    selected_method: Optional[str] = None
 
 class VisualizationData(BaseModel):
     type: str # 'Array', 'Recursion', 'Loop', 'Condition', 'Function', 'Variable'
@@ -20,3 +22,7 @@ class Step(BaseModel):
 class CodeExecutionResponse(BaseModel):
     steps: List[Step]
     error: Optional[str] = None
+    needs_test_case: bool = False
+    needs_disambiguation: bool = False
+    candidates: Optional[List[str]] = None
+    params: Optional[List[str]] = None
