@@ -1,584 +1,411 @@
-"use client";
+"use client"
 
-import React, { useRef, useState, useEffect, Suspense, Component } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { ScrollControls, Scroll, Sparkles, Sphere, Line, useScroll, Environment, MeshTransmissionMaterial, Html } from '@react-three/drei';
-import * as THREE from 'three';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMotionValue, animate, motion, useTransform, useMotionTemplate, useScroll as useFramerScroll } from 'framer-motion';
-import { Search } from 'lucide-react';
-import StudioPage from './studio/page';
-import { CursorLight, CustomCursor, ConstellationVoid, globalPointer, ensureGlobalPointer, ShaderBackground } from './Environment';
-import { useSettings } from '@/contexts/SettingsContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, ArrowRight, Code, Eye, BookOpen } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Inter } from 'next/font/google';
+import PixelDrift from '@/components/PixelDrift';
+import { animate, createScope, stagger } from 'animejs';
+import Studio from './studio/page';
 
-class ErrorBoundary extends Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
-
-function EnvLogger() {
-  useEffect(() => { console.log('Environment mounted'); }, []);
-  return <Environment preset="city" />;
-}
-
-type AppState = 'landing' | 'pre-transition' | 'transition-to-studio' | 'studio' | 'transition-to-landing';
-
-function TreeDemo({ appState }: { appState: AppState }) {
-  const { scrollYProgress } = useFramerScroll();
-  const group = useRef<THREE.Group>(null);
-  const rotationY = useMotionValue(0);
-  const modeRef = useRef<'scroll' | 'auto'>('scroll');
-  const animRef = useRef<any>(null);
-  
-  useEffect(() => ensureGlobalPointer(), []);
-  
-  // Nodes data
-  const nodes = [
-    { id: 1, pos: [0, 2, 0], val: 50 },
-    { id: 2, pos: [-2, 0, 0], val: 30 },
-    { id: 3, pos: [2, 0, 0], val: 70 },
-    { id: 4, pos: [-3, -2, 0], val: 20 },
-    { id: 5, pos: [-1, -2, 0], val: 40 },
-    { id: 6, pos: [1, -2, 0], val: 60 },
-    { id: 7, pos: [3, -2, 0], val: 80 },
-  ];
-  const edges = [
-    [0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]
-  ];
-
-  useFrame((state, delta) => {
-    if (!group.current) return;
-    const offset = scrollYProgress.get(); // 0 to 1
-
-    // Tree grows on scroll
-    // Let's say offset 0 to 0.7 handles growth
-    const growthProgress = Math.min(offset / 0.7, 1);
-    const scale = 0.5 + 0.5 * growthProgress;
-    group.current.scale.set(scale, scale, scale);
-
-    const targetScrollAngle = growthProgress * Math.PI * 0.5;
-
-    // Handle Rotation Hand-offs
-    if (offset > 0.7) {
-      if (modeRef.current === 'scroll') {
-        modeRef.current = 'auto';
-        if (animRef.current) {
-          animRef.current.stop();
-          animRef.current = null;
-        }
-      }
-      
-      // Auto mode: increment shared value continuously
-      const idleProgress = (offset - 0.7) / 0.3;
-      rotationY.set(rotationY.get() + 0.01 * idleProgress);
-    } else {
-      if (modeRef.current === 'auto') {
-        modeRef.current = 'scroll';
-        
-        // Shortest Angle Delta (180-degree / PI symmetry)
-        const current = rotationY.get();
-        const PI = Math.PI;
-        let diff = ((targetScrollAngle - current) % PI + PI) % PI;
-        if (diff > PI / 2) diff -= PI;
-        const targetRawAngle = current + diff;
-        
-        // Springed catch-up fallback over shortest path
-        animRef.current = animate(rotationY, targetRawAngle, {
-          type: "spring",
-          stiffness: 250,
-          damping: 25,
-          onComplete: () => { animRef.current = null; }
-        });
-        animRef.current.customTarget = targetScrollAngle;
-      }
-      
-      // Scroll mode: track scroll strictly (or retarget spring if animating)
-      if (modeRef.current === 'scroll') {
-        if (animRef.current) {
-          // If target changed significantly while catching up, retarget the spring
-          if (Math.abs(animRef.current.customTarget - targetScrollAngle) > 0.01) {
-            animRef.current.stop();
-            
-            const current = rotationY.get();
-            const PI = Math.PI;
-            let diff = ((targetScrollAngle - current) % PI + PI) % PI;
-            if (diff > PI / 2) diff -= PI;
-            const targetRawAngle = current + diff;
-
-            animRef.current = animate(rotationY, targetRawAngle, {
-              type: "spring",
-              stiffness: 250,
-              damping: 25,
-              onComplete: () => { animRef.current = null; }
-            });
-            animRef.current.customTarget = targetScrollAngle;
-          }
-        } else {
-          // Maintain the continuous raw value winding number while tracking scroll strictly
-          // This prevents massive velocity spikes that Framer Motion would otherwise inherit
-          const current = rotationY.get();
-          const PI = Math.PI;
-          let diff = ((targetScrollAngle - current) % PI + PI) % PI;
-          if (diff > PI / 2) diff -= PI;
-          rotationY.set(current + diff);
-        }
-      }
-    }
-    
-    // Apply single source of truth rotation
-    group.current.rotation.y = rotationY.get();
-
-    // Additive Cursor Tilt (X/Z axis) independent of Y-spin
-    const vec = new THREE.Vector3(globalPointer.x, globalPointer.y, 0.5);
-    vec.unproject(state.camera);
-    const dir = vec.sub(state.camera.position).normalize();
-    const distance = (group.current.position.z - state.camera.position.z) / dir.z;
-    const cursorPos = state.camera.position.clone().add(dir.multiplyScalar(distance));
-    
-    const dx = cursorPos.x - group.current.position.x;
-    const dy = cursorPos.y - group.current.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    const maxTilt = 0.2; // subtle lean limit
-    const tiltFactor = Math.max(0, 1 - dist / 5); // smooth falloff up to 5 units (close range only)
-    
-    // Tilt towards cursor
-    const targetTiltX = -dy * 0.05 * tiltFactor;
-    const targetTiltZ = dx * 0.05 * tiltFactor;
-    
-    group.current.rotation.x = THREE.MathUtils.lerp(group.current.rotation.x, Math.max(-maxTilt, Math.min(maxTilt, targetTiltX)), 0.05);
-    group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, Math.max(-maxTilt, Math.min(maxTilt, targetTiltZ)), 0.05);
-
-    // Kept centered in viewport
-    group.current.position.y = 0;
-    group.current.position.x = 2; // Offset slightly to the right to leave space for text
-    
-    // Dolly camera in/out based on transition state
-    if (appState === 'transition-to-studio' || appState === 'studio') {
-      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 2, 0.05);
-    } else {
-      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 10, 0.05);
-    }
-  });
-
-  return (
-    <group ref={group} position={[2, 0, 0]}>
-      {nodes.map((node) => (
-        <Sphere key={node.id} position={node.pos as [number, number, number]} args={[0.5, 32, 32]}>
-          <MeshTransmissionMaterial 
-            backside 
-            samples={4} 
-            thickness={2} 
-            chromaticAberration={1} 
-            anisotropy={0.3} 
-            distortion={0.5} 
-            distortionScale={0.5} 
-            temporalDistortion={0.1} 
-            iridescence={1} 
-            iridescenceIOR={1} 
-            iridescenceThicknessRange={[0, 1400]}
-            color="#09fbd3"
-          />
-        </Sphere>
-      ))}
-      {edges.map((edge, i) => {
-        const parent = nodes[edge[0]];
-        const child = nodes[edge[1]];
-        
-        // Strict null safety: verify parent, child, and points exist before rendering (Step 6)
-        if (!parent || !child) return null;
-        if (!parent.pos || !child.pos) return null;
-        
-        const start = parent.pos as [number, number, number];
-        const end = child.pos as [number, number, number];
-        
-        // Ensure coordinates are valid and have 3 dimensions
-        if (!start || start.length < 3 || !end || end.length < 3) return null;
-        if (start.some(v => v === undefined || isNaN(v)) || end.some(v => v === undefined || isNaN(v))) return null;
-
-        return (
-          <Line 
-            key={i} 
-            points={[start, end]} 
-            color="#00e5ff" 
-            lineWidth={3}
-            transparent
-            opacity={0.8}
-          />
-        );
-      })}
-    </group>
-  );
-}
-
-function Scene({ reducedMotion, appState, quality }: { reducedMotion: boolean, appState: AppState, quality: string }) {
-  console.log('Scene rendering, reducedMotion value:', reducedMotion);
-  return (
-    <>
-      <color attach="background" args={['#020204']} />
-      <ambientLight intensity={0.2} />
-      <spotLight position={[10, 10, 10]} angle={0.25} penumbra={1} intensity={1} color="#00e5ff" />
-      <spotLight position={[-10, -10, -10]} angle={0.25} penumbra={1} intensity={1} color="#fe53bb" />
-      
-      {!reducedMotion && (
-        <ErrorBoundary fallback={null}>
-          <ShaderBackground quality={quality} />
-          <ConstellationVoid quality={quality} />
-          <CursorLight />
-        </ErrorBoundary>
-      )}
-      
-      <TreeDemo appState={appState} />
-      <ErrorBoundary fallback={null}>
-        <Suspense fallback={null}>
-          <EnvLogger />
-        </Suspense>
-      </ErrorBoundary>
-    </>
-  );
-}
-
-function ReadyEvent({ onReady }: { onReady: () => void }) {
-  useEffect(() => {
-    onReady();
-  }, [onReady]);
-  return null;
-}
+const sans = Inter({ 
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-sans',
+});
 
 export default function Home() {
-  const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [appState, setAppState] = useState<AppState>('landing');
-  const [webglSupported, setWebglSupported] = useState(true);
-  const [sceneReady, setSceneReady] = useState(false);
-  const { settings } = useSettings();
-
-  const [irisOrigin, setIrisOrigin] = useState({ x: 0, y: 0 });
-  const lensRef = useRef<HTMLSpanElement>(null);
+  const [showStudio, setShowStudio] = useState(false);
+  const pageScopeRef = useRef<HTMLDivElement>(null);
   
-  const irisRadius = useMotionValue(0);
-  const getMaxRadius = () => typeof window !== 'undefined' ? Math.max(window.innerWidth, window.innerHeight) * 1.5 : 3000;
-  
-  const landingBlur = useTransform(irisRadius, [0, 3000], [0, 12]);
-  const landingGrayscale = useTransform(irisRadius, [0, 3000], [0, 60]);
-  const landingFilter = useMotionTemplate`blur(${landingBlur}px) grayscale(${landingGrayscale}%)`;
-  
-  const ringSize = useMotionTemplate`calc(${irisRadius}px * 2)`;
-  const ringX = useMotionTemplate`calc(${irisOrigin.x}px - ${irisRadius}px)`;
-  const ringY = useMotionTemplate`calc(${irisOrigin.y}px - ${irisRadius}px)`;
-  const irisClipPath = useMotionTemplate`circle(${irisRadius}px at ${irisOrigin.x}px ${irisOrigin.y}px)`;
+  // Magnetic button state
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  const handleBack = () => {
-    if (reducedMotion) {
-      setAppState('landing');
-      router.push('/');
-      return;
-    }
-    
-    if (lensRef.current) {
-      const rect = lensRef.current.getBoundingClientRect();
-      setIrisOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-    }
-    
-    setAppState('transition-to-landing');
-    
-    const forceLandingRoute = setTimeout(() => {
-      setAppState('landing');
-      irisRadius.set(0);
-      router.push('/');
-    }, 4000); // 4 seconds fallback for 3s animation
-    
-    animate(irisRadius, 12, {
-      duration: 3.0,
-      ease: [0.34, 1.1, 0.64, 1], // overshoot settle
-      onComplete: () => {
-        clearTimeout(forceLandingRoute);
-        setAppState('landing');
-        irisRadius.set(0);
-        router.push('/');
-      }
-    });
-  };
+  // 3D Clay Card tilt state
+  const clayCardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    const handlePopState = () => {
-      if (window.location.pathname === '/' && appState === 'studio') {
-        handleBack();
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [appState]);
-
-  useEffect(() => {
-    setIsClient(true);
-    console.log('Lens mounted');
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    console.log('window.matchMedia("(prefers-reduced-motion: reduce)").matches:', mediaQuery.matches);
-    setReducedMotion(mediaQuery.matches);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
     
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) setWebglSupported(false);
-    } catch (e) {
-      setWebglSupported(false);
-    }
-  }, []);
-
-  const handleStudioLaunch = () => {
-    if (appState !== 'landing') return;
-
-    if (reducedMotion) {
-      setAppState('studio');
-      router.push('/studio');
-      return;
-    }
-    
-    if (lensRef.current) {
-      const rect = lensRef.current.getBoundingClientRect();
-      setIrisOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    if (dist < 120) { // pull radius
+      const pullX = (dx / dist) * Math.min(12, dist * 0.1);
+      const pullY = (dy / dist) * Math.min(12, dist * 0.1);
+      setMousePos({ x: pullX, y: pullY });
     } else {
-      setIrisOrigin({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      setMousePos({ x: 0, y: 0 });
     }
-    
-    setAppState('pre-transition');
-    irisRadius.set(12); // Start at the radius of the "O"
-    
-    setTimeout(() => {
-      setAppState('transition-to-studio');
-      
-      const forceStudioRoute = setTimeout(() => {
-        setAppState('studio');
-        router.push('/studio');
-      }, 4500); // 4.5 seconds fallback for 3.5s animation
-      
-      animate(irisRadius, getMaxRadius(), {
-        duration: 3.5, // Cinematic slow pace
-        ease: [0.34, 1.1, 0.64, 1],
-        onComplete: () => {
-          clearTimeout(forceStudioRoute);
-          setAppState('studio');
-          router.push('/studio');
-        }
-      });
-    }, 150);
   };
 
-  const Content = () => (
-    <>
-      {/* Page 1: Hero */}
-      <div className="h-screen w-full flex items-center px-[10vw]">
-        <div className="w-[90%] md:w-1/2 flex flex-col gap-5 z-10 pointer-events-auto">
-          
-          <div className="flex flex-col overflow-hidden">
-            <motion.span 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
-              className="text-brand-teal text-sm md:text-base font-semibold tracking-[0.2em] uppercase drop-shadow-[0_0_12px_rgba(9,251,211,0.4)] mb-4"
-            >
-              The Visual Reasoning Engine
-            </motion.span>
-            
-            <motion.h1 
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.7, delay: 0.1, ease: [0.33, 1, 0.68, 1] }}
-              className="text-4xl md:text-5xl font-medium text-slate-200 tracking-tight leading-none"
-            >
-              See your algorithms
-            </motion.h1>
-            
-            <motion.h1 
-              initial={{ y: 30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.7, delay: 0.2, ease: [0.33, 1, 0.68, 1] }}
-              className="text-[4rem] md:text-[8vw] font-bold text-brand-teal tracking-tighter leading-[0.9] drop-shadow-[0_0_25px_rgba(9,251,211,0.3)] mt-2"
-            >
-              think.
-            </motion.h1>
-          </div>
+  const handleMouseLeave = () => {
+    setMousePos({ x: 0, y: 0 });
+  };
 
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.4 }}
-            className="text-lg md:text-xl text-slate-300 font-normal leading-relaxed max-w-lg drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mt-2"
-          >
-            Watch your data structures mutate step-by-step and finally understand exactly what your code is doing under the hood.
-          </motion.p>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="flex gap-4 mt-6"
-          >
-            <button onClick={handleStudioLaunch} className="btn-primary-glow">Launch Studio</button>
-          </motion.div>
-        </div>
-      </div>
+  const handleClayMouseMove = (e: React.MouseEvent) => {
+    const card = clayCardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left - width / 2;
+    const mouseY = e.clientY - rect.top - height / 2;
+    const rotateX = -(mouseY / (height / 2)) * 6; // max 6 degrees
+    const rotateY = (mouseX / (width / 2)) * 6;
+    setTilt({ x: rotateX, y: rotateY });
+  };
 
-      {/* Page 2: Scroll growth explainer */}
-      <div className="h-screen w-full flex items-center justify-start px-[10vw] relative z-10 pointer-events-none">
-        <div className="w-[90%] md:w-1/3 flex flex-col gap-6 pointer-events-auto">
-          <div className="panel-surface !bg-black/40 !backdrop-blur-2xl border-white/10 shadow-[inset_0_0_20px_rgba(255,255,255,0.05),0_0_15px_rgba(0,229,255,0.2)]">
-            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-              Visual Scale
-            </h2>
-            <p className="text-lg md:text-xl font-normal text-slate-300 leading-relaxed">
-              As algorithms process, their footprint expands. Complexity becomes legible through clear, structural layouts that make abstract logic immediately obvious.
-            </p>
-          </div>
-        </div>
-      </div>
+  const handleClayMouseLeave = () => {
+    setTilt({ x: 0, y: 0 });
+  };
 
-      {/* Page 3: The Invitation */}
-      <div className="h-screen w-full flex items-center justify-center flex-col text-center px-[10vw]">
-        <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-8 drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
-          Transform code into understanding.
-        </h2>
-        <button onClick={handleStudioLaunch} className="btn-primary-glow !h-16 !px-10 !text-xl !rounded-2xl pointer-events-auto">
-          Launch Studio
-        </button>
-      </div>
-    </>
-  );
+  // Studio launch transition trigger
+  const handleLaunch = () => {
+    setShowStudio(true);
+  };
+
+  // anime.js v4 timeline animations on mount
+  useEffect(() => {
+    if (showStudio) return; // skip if studio is open
+    const scope = createScope({ root: pageScopeRef });
+    scope.add(() => {
+      // 1. Animate Navbar
+      animate('.nav-reveal', {
+        opacity: [0, 1],
+        translateY: [-20, 0],
+        duration: 800,
+        easing: 'easeOutQuad'
+      });
+
+      // 2. Animate Wordmark
+      animate('.wordmark-reveal', {
+        opacity: [0, 1],
+        translateY: [25, 0],
+        duration: 900,
+        delay: 150,
+        easing: 'easeOutQuad'
+      });
+
+      // 3. Animate Headline
+      animate('.headline-reveal', {
+        opacity: [0, 1],
+        translateY: [25, 0],
+        duration: 900,
+        delay: 300,
+        easing: 'easeOutQuad'
+      });
+
+      // 4. Animate CTA Button
+      animate('.cta-reveal', {
+        opacity: [0, 1],
+        translateY: [25, 0],
+        duration: 900,
+        delay: 450,
+        easing: 'easeOutQuad'
+      });
+    });
+
+    return () => {
+      scope.revert();
+    };
+  }, [showStudio]);
+
+  const featureVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
+        delay: i * 0.15,
+        duration: 0.6,
+        ease: "easeOut" as const
+      }
+    })
+  };
+
+  const steps = [
+    {
+      num: "01 / FLOW",
+      label: "TRACE",
+      title: "Paste & Execute.",
+      desc: "Paste any function, class, or LeetCode solution. AlgoLens steps through the real execution line by line, no console.log needed."
+    },
+    {
+      num: "02 / DATA",
+      label: "INSPECT",
+      title: "Watch State Mutate.",
+      desc: "Watch variables, arrays, trees, and heap structures update live as the code runs. Every state change is visualized as it happens."
+    },
+    {
+      num: "03 / INSIGHT",
+      label: "UNDERSTAND",
+      title: "Trace Explanations.",
+      desc: "See the shape of the algorithm, not just the output. Recursion, pointers, and traversal patterns become visible instead of imagined."
+    }
+  ];
 
   return (
-    <div className="w-full min-h-screen bg-bg-app text-white font-sans selection:bg-brand-teal/30 relative cursor-none">
-      
-      {/* Fallback Background (Cross-fades out when WebGL is ready) */}
-      <div 
-        className={`fixed inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-brand-teal/10 via-bg-app to-bg-app transition-opacity duration-1000 pointer-events-none ${
-          isClient && webglSupported && sceneReady ? 'opacity-0' : 'opacity-100'
-        }`}
-      />
+    <div 
+      ref={pageScopeRef} 
+      className="relative w-screen h-screen overflow-hidden bg-[#000d10] text-[#8e8e95] selection:bg-[#bc7155]/20"
+    >
+      {/* Raw HTML style tag injection to force absolute body resets and scrollbar death */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        html, body {
+          width: 100vw !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          overflow: hidden !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          position: fixed !important;
+          background-color: #000d10 !important;
+        }
+        ::-webkit-scrollbar {
+          display: none !important;
+          width: 0px !important;
+        }
+      ` }} />
 
-      {/* Studio Iris Reveal Overlay */}
-      {appState !== 'landing' && !reducedMotion && (
-        <motion.div 
-          className="fixed inset-0 z-[200] pointer-events-auto overflow-hidden bg-bg-app"
-          style={{ clipPath: irisClipPath, willChange: 'clip-path', transform: 'translateZ(0)' }}
-        >
-          <StudioPage onBack={handleBack} />
-        </motion.div>
-      )}
-
-      {/* Refraction Edge Ring (The actual visible lens rim) */}
-      {appState !== 'landing' && appState !== 'studio' && !reducedMotion && (
+      {/* GLOBAL ETHEREAL BACKGROUND LAYER */}
+      <div className="absolute inset-0 pointer-events-none z-0 select-none">
         <motion.div
-          className="fixed pointer-events-none rounded-full z-[201]"
-          style={{
-            width: ringSize,
-            height: ringSize,
-            left: ringX,
-            top: ringY,
-            border: '3px solid rgba(9, 251, 211, 0.8)',
-            backdropFilter: 'blur(8px) brightness(1.2)',
-            WebkitBackdropFilter: 'blur(8px) brightness(1.2)',
-            WebkitMaskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
-            maskImage: 'radial-gradient(circle, transparent calc(100% - 20px), black 100%)',
-            boxShadow: '0 0 30px rgba(9,251,211,0.5), inset 0 0 30px rgba(9,251,211,0.5)',
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.15, 0.25, 0.15],
           }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-gradient-to-tr from-[#bc7155]/20 to-[#8e8e95]/10 blur-[140px]"
         />
-      )}
-
-      {/* Landing Page Content (Blurred during transition, native scrolling) */}
-      <motion.div className="w-full relative z-10 pointer-events-none" style={{ filter: landingFilter }}>
-        <Content />
-      </motion.div>
-
-      <div className="fixed top-8 left-1/2 -translate-x-1/2 w-[90%] md:w-full max-w-[900px] z-50 flex justify-between items-center pointer-events-none">
         
-        {/* Piece 1: Logo */}
-        <motion.div 
-          animate={{ y: [0, -3, 0] }} 
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="pointer-events-auto flex items-center transition-colors group cursor-pointer will-change-transform"
+        {/* Grainy Noise Overlay (Inline SVG for maximum rendering safety) */}
+        <svg 
+          className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none mix-blend-overlay scale-[1.2]" 
+          xmlns="http://www.w3.org/2000/svg"
         >
-          <div className="text-xl md:text-2xl font-bold tracking-tight text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.4)] flex items-center">
-            Alg
-            <span 
-              ref={lensRef}
-              className={`relative inline-flex items-center justify-center mx-[1px] w-[1em] h-[1em] transition-all duration-150 ${appState === 'pre-transition' ? 'text-brand-teal scale-125 drop-shadow-[0_0_20px_#09fbd3]' : 'group-hover:text-brand-teal'}`}
-            >
-              <span className="absolute top-[12.5%] left-[12.5%] w-[66.6%] h-[66.6%] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[inset_0_0_8px_rgba(9,251,211,0.6)]" style={{ backdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)', WebkitBackdropFilter: 'blur(3px) brightness(1.2) contrast(1.1)' }}></span>
-              <Search 
-                className={`absolute inset-0 w-full h-full z-10 transition-transform duration-[2000ms] ease-out origin-bottom-right ${appState !== 'landing' ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`} 
-                strokeWidth={3} 
-              />
-            </span>
-            Lens
-          </div>
-        </motion.div>
-
-        {/* Piece 2: Nav Links */}
-        <motion.div 
-          animate={{ y: [0, 4, 0] }} 
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="pointer-events-auto hidden md:flex items-center gap-6 text-base font-medium text-slate-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] will-change-transform"
-        >
-          <Link href="#visualizations" className="relative group/link hover:text-white transition-all duration-300 hover:tracking-[0.02em]">
-            Visualizations
-            <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-brand-teal scale-x-0 origin-right transition-transform duration-300 ease-out group-hover/link:scale-x-100 group-hover/link:origin-left shadow-[0_0_8px_rgba(9,251,211,0.8)] rounded-full"></span>
-          </Link>
-          
-          <span className="w-[4px] h-[4px] rounded-full bg-white/30 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></span>
-          
-          <Link href="https://github.com/MadhavKathuria826/AlgoLens" className="relative group/link hover:text-white transition-all duration-300 hover:tracking-[0.02em]" target="_blank" rel="noopener noreferrer">
-            GitHub
-            <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-brand-teal scale-x-0 origin-right transition-transform duration-300 ease-out group-hover/link:scale-x-100 group-hover/link:origin-left shadow-[0_0_8px_rgba(9,251,211,0.8)] rounded-full"></span>
-          </Link>
-        </motion.div>
-
-        {/* Piece 3: CTA */}
-        <motion.div 
-          animate={{ y: [0, -3, 0] }} 
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="pointer-events-auto will-change-transform"
-        >
-          <button onClick={handleStudioLaunch} className="relative group/cta text-brand-teal font-bold text-base md:text-lg tracking-wide transition-all duration-300 hover:tracking-[0.02em] hover:text-white outline-none">
-            <span className="drop-shadow-[0_0_12px_rgba(9,251,211,0.8)] group-hover/cta:drop-shadow-[0_0_20px_rgba(255,255,255,0.9)] transition-all duration-300">
-              Launch Studio
-            </span>
-            <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-brand-teal scale-x-0 origin-right transition-transform duration-300 ease-out group-hover/cta:scale-x-100 group-hover/cta:origin-left shadow-[0_0_12px_rgba(9,251,211,1)] rounded-full group-hover/cta:bg-white group-hover/cta:shadow-[0_0_12px_rgba(255,255,255,1)]"></span>
-          </button>
-        </motion.div>
+          <filter id="noiseFilter">
+            <feTurbulence 
+              type="fractalNoise" 
+              baseFrequency="0.8" 
+              numOctaves="3" 
+              stitchTiles="stitch" 
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#noiseFilter)" />
+        </svg>
       </div>
 
-      {/* 3D Background Canvas */}
-      {isClient && webglSupported && (
-        <div className="fixed inset-0 z-0">
-          <ErrorBoundary fallback={null}>
-            <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }} frameloop={appState === 'studio' ? 'never' : 'always'}>
-              <Suspense fallback={null}>
-                <Scene reducedMotion={reducedMotion} appState={appState} quality={settings.graphicsQuality} />
-                <ReadyEvent onReady={() => setSceneReady(true)} />
-              </Suspense>
-            </Canvas>
-          </ErrorBoundary>
-          {/* Subtle Dark Teal Vignette Overlay */}
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,15,20,0.6)_120%)] mix-blend-multiply" />
+      {/* LANDING LAYER */}
+      <div 
+        style={{ display: showStudio ? 'none' : 'block' }} 
+        className={`absolute inset-0 z-10 w-full ${showStudio ? 'h-screen max-h-screen overflow-hidden' : 'h-full overflow-y-auto overflow-x-hidden custom-scrollbar'}`}
+      >
+        <div className="w-full flex flex-col gap-20 pb-20">
+          
+          {/* Navbar */}
+          <header className="nav-reveal relative z-50 w-full max-w-5xl mx-auto px-6 py-4 flex justify-between items-center border border-[#d5d3d4]/10 bg-[#0f0f1c]/80 backdrop-blur-sm rounded-[1000px] mt-6 select-none opacity-0">
+            <div className="flex items-center">
+              <div className="text-xl font-bold tracking-[-1.5px] text-white flex items-center select-none">
+                Alg
+                <span className="relative inline-flex items-center justify-center mx-[2px] w-[1em] h-[1em] text-white">
+                  <Search className="w-full h-full" strokeWidth={3} />
+                </span>
+                Lens
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <a 
+                href="https://github.com/MadhavKathuria826/AlgoLens" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[18px] font-medium text-[#8e8e95] hover:text-white transition-colors duration-150"
+              >
+                GitHub
+              </a>
+              <button 
+                onClick={handleLaunch}
+                className="px-6 py-2 border border-white text-white text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
+              >
+                Studio
+              </button>
+            </div>
+          </header>
+
+          {/* Hero Section - Centered Vertically */}
+          <main className="w-full max-w-5xl mx-auto px-6 flex flex-col justify-center items-center min-h-[calc(100vh-150px)]">
+            
+            <div className="w-full flex flex-col items-center text-center border-b border-[#d5d3d4]/10 pb-16 gap-10">
+              {/* Top: Pixel Drift Particle Typography (Centered) */}
+              <div className="wordmark-reveal w-full max-w-3xl select-none h-[220px] flex items-center justify-center opacity-0">
+                <PixelDrift
+                  text="AlgoLens"
+                  colors={["#ffffff", "#8e8e95", "#ffffff"]}
+                  mode="onHover"
+                  fontSize={140}
+                  particleCount={35}
+                  particleSize={6}
+                  mouseRadius={120}
+                  mouseForce={25}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
+              
+              {/* Headline & Magnetic CTA (Centered) */}
+              <div className="flex flex-col items-center gap-6 max-w-2xl">
+                <h1 className="headline-reveal text-[32px] md:text-[42px] font-bold leading-[0.95] tracking-[-1.5px] text-slate-300 opacity-0">
+                  See Code Execute.
+                </h1>
+                <div className="cta-reveal opacity-0">
+                  <motion.button
+                    ref={buttonRef}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
+                    animate={{ x: mousePos.x, y: mousePos.y }}
+                    transition={{ type: "spring", stiffness: 150, damping: 15 }}
+                    onClick={handleLaunch}
+                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors duration-150 text-[18px]"
+                  >
+                    Launch Studio
+                    <ArrowRight className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          {/* Feature Grid: 2-column, Dark Canvas */}
+          <section className="w-full max-w-5xl mx-auto px-6 py-4 flex flex-col gap-12 bg-[#000d10] text-[#8e8e95]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
+              {steps.map((step, idx) => (
+                <motion.div
+                  key={step.label}
+                  custom={idx}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, margin: "-50px" }}
+                  variants={featureVariants}
+                  className={`border-t border-[#d5d3d4]/10 hover:border-white/30 pt-6 flex flex-col gap-4 transition-all duration-300 group hover:-translate-y-1 ${idx === 2 ? 'md:col-span-2' : ''}`}
+                >
+                  <div className="flex items-center justify-between text-[#8e8e95] font-mono text-xs">
+                    <div className="flex items-center gap-2">
+                      <span>{step.num}</span>
+                      {step.label === "TRACE" && <Code className="w-3.5 h-3.5 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-200" />}
+                      {step.label === "INSPECT" && <Eye className="w-3.5 h-3.5 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-200" />}
+                      {step.label === "UNDERSTAND" && <BookOpen className="w-3.5 h-3.5 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-200" />}
+                    </div>
+                    <span className="group-hover:text-white transition-colors duration-200">{step.label}</span>
+                  </div>
+                  <h3 className="text-[23px] font-bold tracking-tight text-white group-hover:text-white transition-colors duration-200">
+                    {step.title}
+                  </h3>
+                  <p className={`text-[18px] leading-[29px] text-[#8e8e95] group-hover:text-slate-300 transition-colors duration-200 font-light ${idx === 2 ? 'max-w-3xl' : ''}`}>
+                    {step.desc}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
+          {/* Alternate dark background band wrapping the LeetCode Sandbox (3D tilt on hover) */}
+          <section className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] bg-[#0f0f1c] py-20 px-6 overflow-hidden" style={{ perspective: 1000 }}>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="w-full max-w-5xl mx-auto"
+            >
+              <motion.div
+                ref={clayCardRef}
+                onMouseMove={handleClayMouseMove}
+                onMouseLeave={handleClayMouseLeave}
+                animate={{ rotateX: tilt.x, rotateY: tilt.y }}
+                transition={{ type: "spring", stiffness: 150, damping: 15 }}
+                style={{ transformStyle: "preserve-3d" }}
+                className="w-full bg-[#181818] text-[#eff1f5] p-10 md:p-16 rounded-none flex flex-col md:flex-row items-start md:items-center justify-between gap-8 border border-[#ffa116]/10 hover:border-[#ffa116]/40 hover:brightness-[1.02] transition-all duration-150 cursor-pointer"
+              >
+                <div className="max-w-xl" style={{ transform: "translateZ(30px)" }}>
+                  <span className="text-xs font-mono font-bold uppercase tracking-[2px] text-[#ffa116]">LeetCode Sandbox</span>
+                  <h2 className="text-[32px] md:text-[42px] font-bold tracking-tight mt-2 leading-none text-white">
+                    Run solutions directly in-browser.
+                  </h2>
+                  <p className="text-[18px] leading-[29px] mt-4 text-[#8e8e95] font-light">
+                    Import any LeetCode problem, paste your solution, and witness variables, pointers, and iterations morph into visual state trees in real-time.
+                  </p>
+                </div>
+                <div className="flex-shrink-0" style={{ transform: "translateZ(40px)" }}>
+                  <button 
+                    onClick={handleLaunch}
+                    className="px-8 py-4 bg-[#ffa116] text-[#181818] text-[18px] font-bold rounded-[1000px] hover:bg-[#ffa116]/90 border border-[#ffa116] transition-all duration-150"
+                  >
+                    Try in Studio
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </section>
+
+          {/* Live Tracing Details: Restructured to White text on Dark Canvas */}
+          <section className="w-full max-w-5xl mx-auto px-6 py-12">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex justify-end w-full"
+            >
+              <div className="max-w-xl text-right flex flex-col items-end gap-4">
+                <span className="text-xs font-mono text-[#8e8e95] tracking-[2px]">DYNAMIC EVALUATION</span>
+                <h2 className="text-[40px] md:text-[56px] font-bold tracking-tight leading-none text-white">
+                  Live Interpretation.
+                </h2>
+                <p className="text-[18px] leading-[29px] text-[#8e8e95] font-light mt-2">
+                  AlgoLens runs a secure custom Python interpreter in the backend. As you step through code, it traces local scopes, registers operations, and feeds state mutations directly to the visual canvas.
+                </p>
+              </div>
+            </motion.div>
+          </section>
+
+          {/* Terminal Footer Band */}
+          <motion.footer 
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] bg-[#0f0f1c] text-[#8e8e95] font-mono text-xs py-12 px-6 border-t border-[#d5d3d4]/10 select-none"
+          >
+            <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-white/40" />
+                <span>SYSTEM: ACTIVE</span>
+              </div>
+              <div>algolens --version 1.2.0 | © {new Date().getFullYear()}</div>
+            </div>
+          </motion.footer>
+
         </div>
-      )}
-      
-      {!reducedMotion && <CustomCursor />}
+      </div>
+
+      {/* STUDIO LAYER */}
+      <div 
+        style={{ display: showStudio ? 'block' : 'none' }} 
+        className="absolute inset-0 z-20 w-full h-screen max-h-screen overflow-hidden"
+      >
+        <Studio onBack={() => setShowStudio(false)} />
+      </div>
+
     </div>
   );
 }

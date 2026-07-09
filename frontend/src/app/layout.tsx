@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Geist } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -10,6 +10,10 @@ export const metadata: Metadata = {
 }
 
 import { SettingsProvider } from '@/contexts/SettingsContext'
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
 
 export default function RootLayout({
   children,
@@ -17,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
       <body className={`${inter.className} custom-scrollbar`}>
         <SettingsProvider>
           {children}
