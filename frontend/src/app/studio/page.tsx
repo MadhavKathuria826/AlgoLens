@@ -34,6 +34,17 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
   const [modalError, setModalError] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -340,9 +351,19 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
           </div>
 
           {/* Center: Canvas */}
-          <div id="export-visualization-panel" className="flex-1 panel-surface flex flex-col !p-0 relative overflow-hidden bg-bg-app">
+          <div 
+            id="export-visualization-panel" 
+            className={`panel-surface flex flex-col !p-0 overflow-hidden bg-bg-app ${
+              isFullscreen ? '!fixed !inset-0 !z-[100]' : 'flex-1 relative'
+            }`}
+          >
             <div className="visualization-header absolute top-0 left-0 right-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm">Visualization</div>
-            <VisualizationCanvas step={currentStep} code={code} />
+            <VisualizationCanvas 
+              step={currentStep} 
+              code={code} 
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+            />
           </div>
 
           {/* Right: Inspector */}

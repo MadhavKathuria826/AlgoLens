@@ -1,11 +1,13 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Maximize } from 'lucide-react';
+import { Maximize, Minimize } from 'lucide-react';
 
 interface ViewportProps {
   children: React.ReactNode;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export default function Viewport({ children }: ViewportProps) {
+export default function Viewport({ children, isFullscreen, onToggleFullscreen }: ViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
@@ -45,10 +47,6 @@ export default function Viewport({ children }: ViewportProps) {
     e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 
-  const resetView = () => {
-    setCamera({ x: 0, y: 0, zoom: 1 });
-  };
-
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -87,16 +85,28 @@ export default function Viewport({ children }: ViewportProps) {
 
   return (
     <div 
-      className="flex-1 relative w-full h-full overflow-hidden bg-transparent"
+      className="viewport-container flex-1 relative w-full h-full overflow-hidden bg-transparent"
       ref={containerRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('button') && target.tagName !== 'INPUT') {
+          e.preventDefault();
+        }
+      }}
+      style={{ 
+        cursor: isDragging ? 'grabbing' : 'grab', 
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none'
+      }}
     >
       <div 
-        className="absolute top-1/2 left-1/2"
+        className="viewport-content-wrapper absolute top-1/2 left-1/2"
         style={{
           transform: `translate(calc(-50% + ${camera.x}px), calc(-50% + ${camera.y}px)) scale(${camera.zoom})`,
           transformOrigin: 'center center',
@@ -107,13 +117,15 @@ export default function Viewport({ children }: ViewportProps) {
       </div>
 
       <div className="absolute bottom-6 right-6 flex gap-2 z-50">
-        <button 
-          onClick={resetView}
-          className="bg-black/50 hover:bg-black/70 text-slate-300 p-2.5 rounded-xl backdrop-blur-md shadow-lg border border-white/10 transition-colors"
-          title="Reset View"
-        >
-          <Maximize size={18} />
-        </button>
+        {onToggleFullscreen && (
+          <button 
+            onClick={onToggleFullscreen}
+            className="bg-black/50 hover:bg-black/70 text-slate-300 p-2.5 rounded-xl backdrop-blur-md shadow-lg border border-white/10 transition-colors"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
+        )}
       </div>
     </div>
   );

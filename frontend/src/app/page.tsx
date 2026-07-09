@@ -566,7 +566,7 @@ export default function Home() {
       {isClient && webglSupported && (
         <div className="fixed inset-0 z-0">
           <ErrorBoundary fallback={null}>
-            <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false }} frameloop={appState === 'studio' ? 'never' : 'always'}>
+            <Canvas camera={{ position: [0, 0, 10], fov: 45 }} gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }} frameloop={appState === 'studio' ? 'never' : 'always'}>
               <Suspense fallback={null}>
                 <Scene reducedMotion={reducedMotion} appState={appState} quality={settings.graphicsQuality} />
                 <ReadyEvent onReady={() => setSceneReady(true)} />

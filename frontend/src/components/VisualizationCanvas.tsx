@@ -12,7 +12,7 @@ import TreeVisualizer from './visualizers/TreeVisualizer';
 import HeapVisualizer from './visualizers/HeapVisualizer';
 import Viewport from './Viewport';
 
-export default function VisualizationCanvas({ step, code }: any) {
+export default function VisualizationCanvas({ step, code, isFullscreen, onToggleFullscreen }: any) {
   if (!step || !step.visualizations || step.visualizations.length === 0) {
     return <div className="flex-1 flex items-center justify-center text-slate-500 font-light text-lg">Run code to see the algorithm</div>;
   }
@@ -65,9 +65,9 @@ export default function VisualizationCanvas({ step, code }: any) {
   const hasLinkedList = step.isLinkedListAlgorithm || (!hasTree && step.heap && Object.keys(step.heap).some(k => step.heap[k].fields && 'next' in step.heap[k].fields));
 
   return (
-    <div className="relative w-full h-full flex flex-col">
-      <Viewport>
-        <div className="flex flex-col items-center justify-center gap-8 min-w-max p-8">
+    <div className="visualization-canvas-root relative w-full h-full flex flex-col">
+      <Viewport isFullscreen={isFullscreen} onToggleFullscreen={onToggleFullscreen}>
+        <div className="visualization-content-root flex flex-col items-center justify-center gap-8 min-w-max p-8">
           {hasLinkedList && <LinkedListVisualizer heap={step.heap} locals={activeLocals} />}
           {hasTree && <TreeVisualizer heap={step.heap} locals={activeLocals} />}
           <AnimatePresence mode="popLayout">
