@@ -12,6 +12,7 @@ import { SemanticAnalyzer } from '@/utils/semanticAnalyzer';
 import ThemePopover from '@/components/ThemePopover';
 import ExportButton from '@/components/ExportButton';
 import SettingsModal from '@/components/SettingsModal';
+import TestCaseModal from '@/components/TestCaseModal';
 import { useSettings } from '@/contexts/SettingsContext';
 
 export default function Studio({ onBack }: { onBack?: () => void }) {
@@ -26,6 +27,13 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
   const [playbackSpeed, setPlaybackSpeed] = useState(() => 
     settings.animationSpeed === 'slow' ? 0.5 : settings.animationSpeed === 'fast' ? 2 : 1
   );
+
+  const [modalMode, setModalMode] = useState<'disambiguation' | 'params' | null>(null);
+  const [modalCandidates, setModalCandidates] = useState<string[] | null>(null);
+  const [modalParams, setModalParams] = useState<string[] | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -47,26 +55,48 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
   }, [isPlaying, currentStepIdx, steps.length, playbackSpeed]);
 
 
-  const handleRun = async () => {
+  const handleRun = () => {
+    setSelectedMethod(null);
+    executeCode();
+  };
+
+  const executeCode = async (optionalTestCase?: string, optionalSelectedMethod?: string, isFromModal: boolean = false) => {
     setIsLoading(true);
     setIsPlaying(false);
+    setModalError(null);
     try {
       const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { 
         code, 
-        max_recursion_depth: settings.maxRecursionDepth 
+        max_recursion_depth: settings.maxRecursionDepth,
+        test_case: optionalTestCase,
+        selected_method: optionalSelectedMethod || selectedMethod
       }, {
         timeout: settings.executionTimeoutMs,
       });
-      if (res.data.error) {
-        setSteps([{
-          step_number: 1,
-          line_number: 0,
-          event_type: 'error',
-          locals: {},
-          visualizations: [{ type: 'Error', details: { msg: res.data.error } }]
-        }]);
-        setCurrentStepIdx(0);
+
+      if (res.data.needs_disambiguation) {
+        setModalCandidates(res.data.candidates);
+        setModalMode('disambiguation');
+        setIsModalOpen(true);
+      } else if (res.data.needs_test_case) {
+        setModalParams(res.data.params);
+        setModalMode('params');
+        setIsModalOpen(true);
+      } else if (res.data.error) {
+        if (isFromModal) {
+          setModalError(res.data.error);
+        } else {
+          setSteps([{
+            step_number: 1,
+            line_number: 0,
+            event_type: 'error',
+            locals: {},
+            visualizations: [{ type: 'Error', details: { msg: res.data.error } }]
+          }]);
+          setCurrentStepIdx(0);
+        }
       } else if (res.data.steps) {
+        setIsModalOpen(false);
         const codeLines = code.split('\n');
         
         const buildSemanticInputs = (s: any) => {
@@ -310,8 +340,8 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
           </div>
 
           {/* Center: Canvas */}
-          <div className="flex-1 panel-surface flex flex-col !p-0 relative overflow-hidden bg-bg-app">
-            <div className="absolute top-0 left-0 right-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm">Visualization</div>
+          <div id="export-visualization-panel" className="flex-1 panel-surface flex flex-col !p-0 relative overflow-hidden bg-bg-app">
+            <div className="visualization-header absolute top-0 left-0 right-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm">Visualization</div>
             <VisualizationCanvas step={currentStep} code={code} />
           </div>
 
@@ -333,6 +363,21 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
           />
         </div>
       </div>
+      <TestCaseModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmitMethod={(method) => {
+          setSelectedMethod(method);
+          executeCode(undefined, method, true);
+        }}
+        onSubmitTestCase={(testCaseStr) => {
+          executeCode(testCaseStr, selectedMethod || undefined, true);
+        }}
+        candidates={modalCandidates}
+        params={modalParams}
+        error={modalError}
+        mode={modalMode}
+      />
     </div>
   );
 }
