@@ -322,7 +322,18 @@ class _heapq_poly:
             "__import__": safe_import,
             "print": print, "range": range, "len": len, "int": int, "str": str,
             "float": float, "bool": bool, "list": list, "abs": abs, "max": max,
-            "min": min, "sum": sum, "True": True, "False": False, "None": None
+            "min": min, "sum": sum, "True": True, "False": False, "None": None,
+            "object": object, "Exception": Exception, "ValueError": ValueError,
+            "TypeError": TypeError, "super": super, "isinstance": isinstance,
+            "staticmethod": staticmethod, "classmethod": classmethod,
+            "dict": dict, "tuple": tuple, "set": set, "frozenset": frozenset,
+            "enumerate": enumerate, "zip": zip, "map": map, "filter": filter,
+            "sorted": sorted, "reversed": reversed, "any": any, "all": all,
+            "next": next, "iter": iter, "divmod": divmod, "pow": pow,
+            "round": round, "chr": chr, "ord": ord, "hasattr": hasattr,
+            "KeyError": KeyError, "IndexError": IndexError, "StopIteration": StopIteration,
+            "ZeroDivisionError": ZeroDivisionError, "AttributeError": AttributeError,
+            "RuntimeError": RuntimeError, "NotImplementedError": NotImplementedError
         }
         safe_globals = {"__builtins__": safe_builtins, "__name__": "__main__"}
         
