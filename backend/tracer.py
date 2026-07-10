@@ -116,12 +116,20 @@ class Tracer:
             def serialize(val):
                 if val is None: return "None"
                 if isinstance(val, (int, float, bool, str)): return str(val) if isinstance(val, bool) else val
-                if (hasattr(val, '__dict__') or hasattr(type(val), '__slots__')) and getattr(type(val), '__module__', '') == '__main__':
+                if (hasattr(val, '__dict__') or hasattr(type(val), '__slots__')) and (
+                    getattr(type(val), '__module__', '') == '__main__' or
+                    type(val).__name__ in ('TreeNode', 'ListNode', 'LocalTreeNode', 'LocalListNode')
+                ):
                     obj_id = f"obj_{id(val)}"
                     if obj_id not in visited_objs:
                         visited_objs.add(obj_id)
                         fields = {}
-                        current_heap[obj_id] = {'type': type(val).__name__, 'fields': fields}
+                        type_name = type(val).__name__
+                        if type_name == 'LocalTreeNode':
+                            type_name = 'TreeNode'
+                        elif type_name == 'LocalListNode':
+                            type_name = 'ListNode'
+                        current_heap[obj_id] = {'type': type_name, 'fields': fields}
                         import inspect
                         attrs = {}
                         if hasattr(val, '__dict__'):
@@ -335,7 +343,80 @@ class _heapq_poly:
             "ZeroDivisionError": ZeroDivisionError, "AttributeError": AttributeError,
             "RuntimeError": RuntimeError, "NotImplementedError": NotImplementedError
         }
-        safe_globals = {"__builtins__": safe_builtins, "__name__": "__main__"}
+        class LocalTreeNode:
+            def __init__(self, val=0, left=None, right=None):
+                self.val = val
+                self.left = left
+                self.right = right
+            def __repr__(self):
+                return f"TreeNode({self.val})"
+
+        class LocalListNode:
+            def __init__(self, val=0, next=None):
+                self.val = val
+                self.next = next
+            def __repr__(self):
+                return f"ListNode({self.val})"
+
+        def deserialize_tree(arr):
+            if not arr or not isinstance(arr, list):
+                return None
+            cls = safe_globals.get('TreeNode', LocalTreeNode)
+            root = cls(arr[0])
+            queue = [root]
+            i = 1
+            while queue and i < len(arr):
+                curr = queue.pop(0)
+                if curr is not None:
+                    if i < len(arr):
+                        val = arr[i]
+                        i += 1
+                        if val is not None:
+                            curr.left = cls(val)
+                            queue.append(curr.left)
+                    if i < len(arr):
+                        val = arr[i]
+                        i += 1
+                        if val is not None:
+                            curr.right = cls(val)
+                            queue.append(curr.right)
+            return root
+
+        def deserialize_list(arr):
+            if not arr or not isinstance(arr, list):
+                return None
+            cls = safe_globals.get('ListNode', LocalListNode)
+            head = cls(arr[0])
+            curr = head
+            for val in arr[1:]:
+                curr.next = cls(val)
+                curr = curr.next
+            return head
+
+        safe_globals = {
+            "__builtins__": safe_builtins,
+            "__name__": "__main__",
+            "_deserialize_tree": deserialize_tree,
+            "_deserialize_list": deserialize_list
+        }
+
+        has_treenode = False
+        has_listnode = False
+        try:
+            tree = ast.parse(code)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    if node.name == 'TreeNode':
+                        has_treenode = True
+                    elif node.name == 'ListNode':
+                        has_listnode = True
+        except Exception:
+            pass
+
+        if not has_treenode:
+            safe_globals["TreeNode"] = LocalTreeNode
+        if not has_listnode:
+            safe_globals["ListNode"] = LocalListNode
         
         old_trace = sys.gettrace()
         sys.settrace(self.trace_calls)
