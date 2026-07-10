@@ -76,7 +76,8 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
     setIsPlaying(false);
     setModalError(null);
     try {
-      const res = await axios.post(`http://${window.location.hostname}:8000/api/execute`, { 
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const res = await axios.post(`${API_URL}/api/execute`, { 
         code, 
         max_recursion_depth: settings.maxRecursionDepth,
         test_case: optionalTestCase,
