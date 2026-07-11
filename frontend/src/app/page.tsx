@@ -255,10 +255,10 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-3 sm:gap-6">
-              <SocialButton className="hidden sm:flex" />
+              <SocialButton className="flex" />
               <button 
                 onClick={handleLaunch}
-                className="px-4 py-1.5 sm:px-6 sm:py-2 border border-white text-white text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
+                className="hidden sm:block px-4 py-1.5 sm:px-6 sm:py-2 border border-white text-white text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
               >
                 Studio
               </button>

@@ -423,10 +423,10 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
     return (
       <div className="w-screen h-screen bg-[#000d10] flex flex-col items-center justify-center p-6 text-center text-[#8e8e95] select-none">
         <div className="text-white text-2xl font-bold mb-4 tracking-tight">
-          AlgoLens Studio needs a larger screen.
+          Desktop experience only
         </div>
         <p className="max-w-md text-base mb-8 font-light leading-relaxed">
-          Please visit on a laptop or desktop computer to view execution traces and dynamic visualizers.
+          AlgoLens Studio is currently optimized for laptops and desktop computers. Please open it on a larger screen for the full interactive visualization experience.
         </p>
         <button
           onClick={onBack}
