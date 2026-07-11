@@ -242,10 +242,10 @@ export default function Home() {
               opacity: showStudio ? 0 : 1,
               transition: 'all 500ms cubic-bezier(0.85, 0, 0.15, 1)',
             }}
-            className="nav-reveal relative z-50 w-full max-w-5xl mx-auto px-6 py-4 flex justify-between items-center border border-[#d5d3d4]/10 bg-transparent backdrop-blur-sm rounded-[1000px] mt-6 select-none opacity-0"
+            className="nav-reveal relative z-50 w-[calc(100%-2rem)] max-w-5xl mx-auto px-4 py-2 flex justify-between items-center border border-[#d5d3d4]/10 bg-transparent backdrop-blur-sm rounded-[1000px] mt-4 sm:px-6 sm:py-4 sm:mt-6 select-none opacity-0"
           >
             <div className="flex items-center">
-              <div className="text-xl font-bold tracking-[-1.5px] text-white flex items-center select-none">
+              <div className="text-lg sm:text-xl font-bold tracking-[-1.5px] text-white flex items-center select-none">
                 Alg
                 <span className="relative inline-flex items-center justify-center mx-[2px] w-[1em] h-[1em] text-white">
                   <Search className="w-full h-full" strokeWidth={3} />
@@ -254,11 +254,11 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center gap-6">
-              <SocialButton />
+            <div className="flex items-center gap-3 sm:gap-6">
+              <SocialButton className="hidden sm:flex" />
               <button 
                 onClick={handleLaunch}
-                className="px-6 py-2 border border-white text-white text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
+                className="px-4 py-1.5 sm:px-6 sm:py-2 border border-white text-white text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
               >
                 Studio
               </button>
@@ -266,7 +266,7 @@ export default function Home() {
           </header>
 
           {/* Hero Section - Centered Vertically */}
-          <main className="w-full max-w-5xl mx-auto px-6 flex flex-col justify-center items-center min-h-[calc(100vh-150px)]">
+          <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 flex flex-col justify-center items-center min-h-[60vh] md:min-h-[calc(100vh-150px)]">
             <div 
               style={{
                 transform: showStudio ? 'scale(1.1) rotate(-1deg)' : 'scale(1) rotate(0deg)',
@@ -274,18 +274,19 @@ export default function Home() {
                 opacity: showStudio ? 0 : 1,
                 transition: 'all 500ms cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
-              className="w-full flex flex-col items-center text-center border-b border-[#d5d3d4]/10 pb-16 gap-10"
+              className="w-full flex flex-col items-center text-center border-b border-[#d5d3d4]/10 pb-10 sm:pb-16 gap-6 sm:gap-10"
             >
               {/* Quiet Luxury Index Tag */}
               <span className="text-xs font-mono text-[#8e8e95] tracking-[3px] uppercase block opacity-70">INDEX // 01 REASONING ENGINE</span>
 
               {/* Top: Pixel Drift Particle Typography (Centered) */}
-              <div className="wordmark-reveal w-full max-w-3xl select-none h-[220px] flex items-center justify-center opacity-0">
+              <div className="wordmark-reveal w-full max-w-3xl select-none h-[120px] sm:h-[180px] md:h-[220px] flex items-center justify-center opacity-0">
                 <PixelDrift
                   text="AlgoLens"
                   colors={["#ffffff", "#8e8e95", "#ffffff"]}
                   mode="onHover"
                   fontSize={140}
+                  autoFit={true}
                   particleCount={35}
                   particleSize={6}
                   mouseRadius={120}
@@ -296,7 +297,7 @@ export default function Home() {
               
               {/* Headline & Magnetic CTA (Centered) */}
               <div className="flex flex-col items-center gap-6 max-w-2xl">
-                <h1 className="headline-reveal text-[32px] md:text-[42px] font-bold leading-[0.95] tracking-[-1.5px] text-slate-300 opacity-0">
+                <h1 className="headline-reveal text-[24px] sm:text-[32px] md:text-[42px] font-bold leading-[0.95] tracking-[-1.5px] text-slate-300 opacity-0">
                   See Code Execute.
                 </h1>
                 <div className="cta-reveal opacity-0">
@@ -307,7 +308,7 @@ export default function Home() {
                     animate={{ x: mousePos.x, y: mousePos.y }}
                     transition={{ type: "spring", stiffness: 150, damping: 15 }}
                     onClick={handleLaunch}
-                    className="inline-flex items-center gap-2 px-8 py-3.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors duration-150 text-[18px]"
+                    className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors duration-150 text-base sm:text-[18px]"
                   >
                     Launch Studio
                     <ArrowRight className="w-5 h-5" />
@@ -327,8 +328,8 @@ export default function Home() {
             className="w-full flex flex-col gap-20"
           >
             {/* Feature Grid: 2-column, Dark Canvas */}
-            <section className="w-full max-w-5xl mx-auto px-6 py-4 flex flex-col gap-12">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
+            <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-8 sm:gap-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-8 sm:gap-y-12">
                 {steps.map((step, idx) => (
                   <motion.div
                     key={step.label}
@@ -337,7 +338,7 @@ export default function Home() {
                     whileInView="visible"
                     viewport={{ once: true, margin: "-50px" }}
                     variants={featureVariants}
-                    className={`border-t border-[#d5d3d4]/10 hover:border-white/30 pt-6 flex flex-col gap-4 transition-all duration-300 group hover:-translate-y-1 ${idx === 2 ? 'md:col-span-2' : ''}`}
+                    className={`border-t border-[#d5d3d4]/10 hover:border-white/30 pt-6 flex flex-col gap-3 sm:gap-4 transition-all duration-300 group hover:-translate-y-1 ${idx === 2 ? 'md:col-span-2' : ''}`}
                   >
                     <div className="flex items-center justify-between text-[#8e8e95] font-mono text-xs">
                       <div className="flex items-center gap-2">
@@ -348,10 +349,10 @@ export default function Home() {
                       </div>
                       <span className="group-hover:text-white transition-colors duration-200">{step.label}</span>
                     </div>
-                    <h3 className="text-[23px] font-bold tracking-tight text-white group-hover:text-white transition-colors duration-200">
+                    <h3 className="text-lg sm:text-xl sm:text-[23px] font-bold tracking-tight text-white group-hover:text-white transition-colors duration-200">
                       {step.title}
                     </h3>
-                    <p className={`text-[18px] leading-[29px] text-[#8e8e95] group-hover:text-slate-300 transition-colors duration-200 font-light ${idx === 2 ? 'max-w-3xl' : ''}`}>
+                    <p className={`text-base sm:text-[18px] leading-[26px] sm:leading-[29px] text-[#8e8e95] group-hover:text-slate-300 transition-colors duration-200 font-light ${idx === 2 ? 'max-w-3xl' : ''}`}>
                       {step.desc}
                     </p>
                   </motion.div>
@@ -360,7 +361,7 @@ export default function Home() {
             </section>
 
             {/* LeetCode Sandbox - transparent, no band */}
-            <section className="w-full max-w-5xl mx-auto px-6 py-4 overflow-hidden" style={{ perspective: 1000 }}>
+            <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-4 overflow-hidden" style={{ perspective: 1000 }}>
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -375,21 +376,21 @@ export default function Home() {
                   animate={{ rotateX: tilt.x, rotateY: tilt.y }}
                   transition={{ type: "spring", stiffness: 150, damping: 15 }}
                   style={{ transformStyle: "preserve-3d" }}
-                  className="w-full bg-white/5 backdrop-blur-sm text-[#eff1f5] p-10 md:p-16 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-8 border border-[#ffa116]/10 hover:border-[#ffa116]/40 hover:brightness-[1.02] transition-all duration-150 cursor-pointer"
+                  className="w-full bg-white/5 backdrop-blur-sm text-[#eff1f5] p-6 sm:p-10 md:p-16 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 sm:gap-8 border border-[#ffa116]/10 hover:border-[#ffa116]/40 hover:brightness-[1.02] transition-all duration-150 cursor-pointer"
                 >
                   <div className="max-w-xl" style={{ transform: "translateZ(30px)" }}>
                     <span className="text-xs font-mono font-bold uppercase tracking-[2px] text-[#ffa116]">04 // LeetCode Sandbox</span>
-                    <h2 className="text-[32px] md:text-[42px] font-bold tracking-tight mt-2 leading-none text-white">
+                    <h2 className="text-2xl sm:text-3xl md:text-[42px] font-bold tracking-tight mt-2 leading-none text-white">
                       Run solutions directly in-browser.
                     </h2>
-                    <p className="text-[18px] leading-[29px] mt-4 text-[#8e8e95] font-light">
+                    <p className="text-base sm:text-[18px] leading-[26px] sm:leading-[29px] mt-2 sm:mt-4 text-[#8e8e95] font-light">
                       Import any LeetCode problem, paste your solution, and witness variables, pointers, and iterations morph into visual state trees in real-time.
                     </p>
                   </div>
                   <div className="flex-shrink-0" style={{ transform: "translateZ(40px)" }}>
                     <button 
                       onClick={handleLaunch}
-                      className="px-8 py-4 bg-[#ffa116] text-[#181818] text-[18px] font-bold rounded-[1000px] hover:bg-[#ffa116]/90 border border-[#ffa116] transition-all duration-150"
+                      className="px-6 py-3 sm:px-8 sm:py-4 bg-[#ffa116] text-[#181818] text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-[#ffa116]/90 border border-[#ffa116] transition-all duration-150"
                     >
                       Try in Studio
                     </button>
@@ -399,20 +400,20 @@ export default function Home() {
             </section>
 
             {/* Live Tracing Details: Restructured to White text on Dark Canvas */}
-            <section className="w-full max-w-5xl mx-auto px-6 py-12">
+            <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.7, ease: "easeOut" }}
-                className="flex justify-end w-full"
+                className="flex justify-center md:justify-end w-full"
               >
-                <div className="max-w-xl text-right flex flex-col items-end gap-4">
+                <div className="max-w-xl text-center items-center md:text-right md:items-end flex flex-col gap-4">
                   <span className="text-xs font-mono text-[#8e8e95] tracking-[2px]">05 // DYNAMIC EVALUATION</span>
-                  <h2 className="text-[40px] md:text-[56px] font-bold tracking-tight leading-none text-white">
+                  <h2 className="text-3xl sm:text-4xl md:text-[56px] font-bold tracking-tight leading-none text-white">
                     Live Interpretation.
                   </h2>
-                  <p className="text-[18px] leading-[29px] text-[#8e8e95] font-light mt-2">
+                  <p className="text-base sm:text-[18px] leading-[26px] sm:leading-[29px] text-[#8e8e95] font-light mt-1 sm:mt-2">
                     AlgoLens runs a secure custom Python interpreter in the backend. As you step through code, it traces local scopes, registers operations, and feeds state mutations directly to the visual canvas.
                   </p>
                 </div>
@@ -425,9 +426,9 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              className="mt-auto w-full text-[#8e8e95] font-mono text-xs py-8 px-6 border-t border-[#d5d3d4]/10 select-none"
+              className="mt-auto w-full text-[#8e8e95] font-mono text-xs py-6 sm:py-8 px-4 sm:px-6 border-t border-[#d5d3d4]/10 select-none"
             >
-              <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-white/40" />
                   <span>SYSTEM: ACTIVE</span>

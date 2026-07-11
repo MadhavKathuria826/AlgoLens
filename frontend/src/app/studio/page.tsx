@@ -14,8 +14,9 @@ import ExportButton from '@/components/ExportButton';
 import SettingsModal from '@/components/SettingsModal';
 import TestCaseModal from '@/components/TestCaseModal';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
-export default function Studio({ onBack }: { onBack?: () => void }) {
+function StudioInner({ onBack }: { onBack?: () => void }) {
   const [code, setCode] = useState(`def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nresult = factorial(3)`);
   const [steps, setSteps] = useState<any[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -402,4 +403,40 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
       />
     </div>
   );
+}
+
+export default function Studio({ onBack }: { onBack?: () => void }) {
+  const isMobile = useIsMobile();
+
+  if (isMobile === null) {
+    return (
+      <div className="w-screen h-screen bg-[#000d10] flex items-center justify-center text-white select-none">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#ffa116]" />
+          <span className="text-xs font-mono text-[#8e8e95] tracking-[2px] uppercase">INDEXING INTERNALS...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="w-screen h-screen bg-[#000d10] flex flex-col items-center justify-center p-6 text-center text-[#8e8e95] select-none">
+        <div className="text-white text-2xl font-bold mb-4 tracking-tight">
+          AlgoLens Studio needs a larger screen.
+        </div>
+        <p className="max-w-md text-base mb-8 font-light leading-relaxed">
+          Please visit on a laptop or desktop computer to view execution traces and dynamic visualizers.
+        </p>
+        <button
+          onClick={onBack}
+          className="px-6 py-2.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  return <StudioInner onBack={onBack} />;
 }
