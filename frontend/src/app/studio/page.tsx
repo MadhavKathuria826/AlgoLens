@@ -119,7 +119,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           }
           if (s && s.visualizations) {
             s.visualizations.forEach((v: any) => {
-              if (v.type === 'Array' && v.details && v.details.name) {
+              if ((v.type === 'Array' || v.type === 'DP_TABLE') && v.details && v.details.name) {
                 inputs[v.details.name] = v.details.value;
               }
               if (v.type === 'Variable' || v.type === 'Loop') {
@@ -141,7 +141,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           if (step.visualizations) {
              const currentMem = globalAnalyzer.getMemory();
              step.visualizations.forEach((v: any) => {
-                if (v.type === 'Array' && v.details && v.details.name && v.details.obj_id) {
+                if ((v.type === 'Array' || v.type === 'DP_TABLE') && v.details && v.details.name && v.details.obj_id) {
                    const varName = v.details.name;
                    const objId = v.details.obj_id;
                    const mem = currentMem[varName];
@@ -178,7 +178,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
              let globalId = globalSemanticMemory[k];
 
              // Check if it's an Array with an obj_id identity first
-             const vis = step.visualizations?.find((v: any) => v.type === 'Array' && v.details?.name === k);
+             const vis = step.visualizations?.find((v: any) => (v.type === 'Array' || v.type === 'DP_TABLE') && v.details?.name === k);
              if (vis && vis.details.obj_id && objIdRoles[vis.details.obj_id]) {
                  globalId = objIdRoles[vis.details.obj_id];
              }
@@ -359,13 +359,15 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
               isFullscreen ? '!fixed !inset-0 !z-[100]' : 'flex-1 relative'
             }`}
           >
-            <div className="visualization-header absolute top-0 left-0 right-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase z-10 border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm">Visualization</div>
-            <VisualizationCanvas 
-              step={currentStep} 
-              code={code} 
-              isFullscreen={isFullscreen}
-              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-            />
+            <div className="visualization-header shrink-0 px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 bg-bg-surface/80 backdrop-blur-sm z-10">Visualization</div>
+            <div className="flex-1 relative overflow-hidden w-full h-full">
+              <VisualizationCanvas 
+                step={currentStep} 
+                code={code} 
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+              />
+            </div>
           </div>
 
           {/* Right: Inspector */}

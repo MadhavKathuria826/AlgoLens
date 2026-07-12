@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useLayoutEffect } from 'react';
 
-export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isDimmed, currentLineCode }: { data: any, locals: any, isCurrentlyIterated?: boolean, isDimmed?: boolean, currentLineCode?: string }) {
+export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isDimmed, currentLineCode, visualType }: { data: any, locals: any, isCurrentlyIterated?: boolean, isDimmed?: boolean, currentLineCode?: string, visualType?: string }) {
   const prevLocalsRef = useRef<any>({});
   
   useEffect(() => {
@@ -26,6 +26,87 @@ export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isD
   const memory = semanticMemoryRef.current;
 
   const isMatrix = Array.isArray(data.value) && data.value.length > 0 && Array.isArray(data.value[0]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [arrows, setArrows] = useState<any[]>([]);
+
+  const targetSourcesKey = JSON.stringify({ target: data.target, sources: data.sources });
+
+  useLayoutEffect(() => {
+    const calculateArrows = () => {
+      if (!containerRef.current || visualType !== 'DP_TABLE' || data.target === undefined || !data.sources || data.sources.length === 0) {
+        setArrows([]);
+        return;
+      }
+
+      const container = containerRef.current;
+      
+      let targetEl: HTMLElement | null = null;
+      if (isMatrix) {
+        if (Array.isArray(data.target) && data.target.length === 2) {
+          const [tr, tc] = data.target;
+          const outer = container.querySelector(`[data-cell-coord="${tr}-${tc}"]`);
+          targetEl = outer ? (outer.querySelector('.cell-slot') as HTMLElement || outer) : null;
+        }
+      } else {
+        const outer = container.querySelector(`[data-cell-idx="${data.target}"]`);
+        targetEl = outer ? (outer.querySelector('.cell-slot') as HTMLElement || outer) : null;
+      }
+
+      if (!targetEl) {
+        setArrows([]);
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const tx = targetRect.left - containerRect.left + targetRect.width / 2;
+      const ty = targetRect.top - containerRect.top + targetRect.height / 2;
+
+      const newArrows: any[] = [];
+
+      for (const src of data.sources) {
+        let srcEl: HTMLElement | null = null;
+        if (isMatrix) {
+          if (Array.isArray(src) && src.length === 2) {
+            const [sr, sc] = src;
+            const outer = container.querySelector(`[data-cell-coord="${sr}-${sc}"]`);
+            srcEl = outer ? (outer.querySelector('.cell-slot') as HTMLElement || outer) : null;
+          }
+        } else {
+          const outer = container.querySelector(`[data-cell-idx="${src}"]`);
+          srcEl = outer ? (outer.querySelector('.cell-slot') as HTMLElement || outer) : null;
+        }
+
+        if (srcEl) {
+          const srcRect = srcEl.getBoundingClientRect();
+          const sx = srcRect.left - containerRect.left + srcRect.width / 2;
+          const sy = srcRect.top - containerRect.top + srcRect.height / 2;
+          newArrows.push({ sx, sy, tx, ty });
+        }
+      }
+
+      setArrows(newArrows);
+    };
+
+    // Recalculate continuously for 600ms to ensure correct coords during transitions
+    let count = 0;
+    let timeoutId: any = null;
+    const run = () => {
+      calculateArrows();
+      if (count < 15) {
+        count++;
+        timeoutId = setTimeout(run, 40);
+      }
+    };
+    run();
+
+    window.addEventListener('resize', calculateArrows);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', calculateArrows);
+    };
+  }, [targetSourcesKey, visualType, isMatrix, data.value]);
 
   const prevArrayRef = useRef<any[]>([]);
   const trackedItemsRef = useRef<{id: string, value: any}[]>([]);
@@ -230,13 +311,30 @@ export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isD
 
   return (
     <motion.div 
+      ref={containerRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: isDimmed ? 0.3 : 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className={`flex flex-col items-center gap-12 my-8 w-full relative ${isDimmed ? 'grayscale-[50%]' : ''}`}
+      className={`flex flex-col items-center gap-12 my-8 w-full relative ${isDimmed ? 'grayscale-[50%]' : ''} ${
+        visualType === 'DP_TABLE' 
+          ? 'bg-brand-violet/[0.03] border border-brand-violet/15 rounded-2xl p-8 shadow-[0_8px_32px_rgba(254,83,187,0.04)]' 
+          : ''
+      }`}
     >
-      <div className="text-emerald-400 font-mono text-xl tracking-wider uppercase">{data.name}</div>
+      <div className="flex flex-col items-center gap-1">
+        <div className={`${visualType === 'DP_TABLE' ? 'text-brand-violet' : 'text-emerald-400'} font-mono text-xl tracking-wider uppercase`}>
+          {data.name}
+        </div>
+        <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+          {visualType === 'DP_TABLE' ? 'DP Table' : 'Array'}
+        </div>
+        {visualType === 'DP_TABLE' && (
+          <div className="text-xl text-red-500 font-bold font-mono tracking-widest mt-2 border border-red-500 p-2 rounded bg-red-500/10">
+            BUILD-11
+          </div>
+        )}
+      </div>
       
       {isMatrix ? (
         <div className="flex flex-col items-center gap-2 relative min-h-[140px]">
@@ -245,22 +343,42 @@ export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isD
               {rowItem.value.map((cell: any, cIdx: number) => {
                 const key = `${rIdx}-${cIdx}`;
                 const isCompared = accessedIndices.has(key);
+                
+                const isTarget = data.target !== undefined && Array.isArray(data.target) && data.target[0] === rIdx && data.target[1] === cIdx;
+                const isSource = data.target !== undefined && Array.isArray(data.sources) && data.sources.some((s: any) => Array.isArray(s) && s[0] === rIdx && s[1] === cIdx);
+                const showDPColors = visualType === 'DP_TABLE' && data.target !== undefined;
+                
+                const cellBgClass = showDPColors
+                  ? (isTarget
+                      ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
+                      : (isSource
+                          ? 'border-brand-violet bg-brand-violet/30 shadow-[0_0_20px_rgba(254,83,187,0.5)]'
+                          : 'border-brand-violet/30 bg-brand-violet/5 shadow-[0_0_10px_rgba(254,83,187,0.1)]'))
+                  : (isCompared 
+                      ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
+                      : (visualType === 'DP_TABLE'
+                          ? 'border-brand-violet/50 bg-brand-violet/10 shadow-[0_0_20px_rgba(254,83,187,0.15)]'
+                          : 'border-emerald-500/50 bg-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]'));
+
+                const slotBorderClass = showDPColors
+                  ? (isTarget ? 'border-blue-500/30' : (isSource ? 'border-brand-violet/40' : 'border-brand-violet/10'))
+                  : (isCompared 
+                      ? 'border-blue-500/30' 
+                      : (visualType === 'DP_TABLE' ? 'border-brand-violet/20' : 'border-emerald-500/20'));
+
                 return (
-                  <div key={key} className="flex flex-col items-center relative">
+                  <div key={key} data-cell-coord={`${rIdx}-${cIdx}`} className="flex flex-col items-center relative">
+                    {/* Index Label */}
+                    <div className="text-[10px] text-slate-500 font-mono mb-1">{rIdx},{cIdx}</div>
                     {/* Fixed Background Cell Slot */}
-                    <div className={`w-16 h-16 rounded border-2 border-dashed ${isCompared ? 'border-blue-500/30' : 'border-emerald-500/20'} bg-black/10 flex items-center justify-center relative`}>
+                    <div className={`w-16 h-16 cell-slot rounded border-2 border-dashed ${slotBorderClass} bg-black/10 flex items-center justify-center relative`}>
                       <motion.div
-                        layout
-                        className={`absolute inset-0 border-2 flex items-center justify-center text-2xl font-mono text-white rounded z-10 transition-colors duration-300 ${
-                          isCompared 
-                            ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
-                            : 'border-emerald-500/50 bg-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                        }`}
+                        layout={visualType === 'DP_TABLE' ? undefined : true}
+                        className={`absolute inset-0 border-2 flex items-center justify-center text-2xl font-mono text-white rounded z-10 transition-colors duration-300 ${cellBgClass}`}
                       >
                         {cell}
                       </motion.div>
                     </div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-1 mb-2">{rIdx},{cIdx}</div>
                     
                     <div className="absolute top-[85px] left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
                       <AnimatePresence>
@@ -302,28 +420,46 @@ export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isD
         <div className="flex items-start gap-3 relative min-h-[140px]">
           {trackedItems.map((item: any, idx: number) => {
             const isCompared = accessedIndices.has(idx);
+            
+            const isTarget = data.target !== undefined && data.target === idx;
+            const isSource = data.target !== undefined && Array.isArray(data.sources) && data.sources.includes(idx);
+            const showDPColors = visualType === 'DP_TABLE' && data.target !== undefined;
+            
+            const cellBgClass = showDPColors
+              ? (isTarget
+                  ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
+                  : (isSource
+                      ? 'border-brand-violet bg-brand-violet/30 shadow-[0_0_20px_rgba(254,83,187,0.5)]'
+                      : 'border-brand-violet/30 bg-brand-violet/5 shadow-[0_0_10px_rgba(254,83,187,0.1)]'))
+              : (isCompared 
+                  ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
+                  : (visualType === 'DP_TABLE'
+                      ? 'border-brand-violet/50 bg-brand-violet/10 shadow-[0_0_20px_rgba(254,83,187,0.15)]'
+                      : 'border-emerald-500/50 bg-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]'));
+
+            const slotBorderClass = showDPColors
+              ? (isTarget ? 'border-blue-500/30' : (isSource ? 'border-brand-violet/40' : 'border-brand-violet/10'))
+              : (isCompared 
+                  ? 'border-blue-500/30' 
+                  : (visualType === 'DP_TABLE' ? 'border-brand-violet/20' : 'border-emerald-500/20'));
+
             return (
-              <div key={`slot-${idx}`} className="flex flex-col items-center relative">
+              <div key={`slot-${idx}`} data-cell-idx={idx} className="flex flex-col items-center relative">
+                {/* Index Label */}
+                <div className="text-[10px] text-slate-500 font-mono mb-1">{idx}</div>
                 {/* Fixed Background Cell Slot */}
-                <div className={`w-16 h-16 rounded border-2 border-dashed ${isCompared ? 'border-blue-500/30' : 'border-emerald-500/20'} bg-black/10 flex items-center justify-center relative`}>
+                <div className={`w-16 h-16 cell-slot rounded border-2 border-dashed ${slotBorderClass} bg-black/10 flex items-center justify-center relative`}>
                   {/* Movable Value Entity */}
                   <motion.div
                     key={`value-${item.id}`}
-                    layout
+                    layout={visualType === 'DP_TABLE' ? undefined : true}
                     layoutId={`val-${data.name}-${item.id}`}
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className={`absolute inset-0 border-2 flex items-center justify-center text-2xl font-mono text-white rounded z-10 transition-colors duration-300 ${
-                      isCompared 
-                        ? 'border-blue-400 bg-blue-500/40 shadow-[0_0_20px_rgba(96,165,250,0.6)]' 
-                        : 'border-emerald-500/50 bg-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                    }`}
+                    className={`absolute inset-0 border-2 flex items-center justify-center text-2xl font-mono text-white rounded z-10 transition-colors duration-300 ${cellBgClass}`}
                   >
                     {item.value}
                   </motion.div>
                 </div>
-                
-                {/* Index Label */}
-                <div className="text-[10px] text-slate-500 font-mono mt-1 mb-2">{idx}</div>
                 
                 {/* Pointers Container */}
                 <div className="absolute top-[85px] left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
@@ -393,6 +529,54 @@ export default function ArrayVisualizer({ data, locals, isCurrentlyIterated, isD
             ))}
           </div>
         </div>
+      )}
+
+      {arrows.length > 0 && (
+        <motion.svg 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="absolute inset-0 w-full h-full pointer-events-none z-30 overflow-visible"
+        >
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="8"
+              markerHeight="6"
+              refX="6"
+              refY="3"
+              orient="auto"
+            >
+              <polygon points="0 0, 8 3, 0 6" fill="#fe53bb" />
+            </marker>
+          </defs>
+          {arrows.map((arr, i) => {
+            const dx = arr.tx - arr.sx;
+            const dy = arr.ty - arr.sy;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            
+            if (len === 0) return null;
+            
+            // Shorten both ends of the arrow to land just outside cell borders (approx 34px from centers)
+            const ux = dx / len;
+            const uy = dy / len;
+            const startX = arr.sx + ux * 34;
+            const startY = arr.sy + uy * 34;
+            const targetX = arr.tx - ux * 34;
+            const targetY = arr.ty - uy * 34;
+            
+            return (
+              <path
+                key={`arrow-${i}`}
+                d={`M ${startX} ${startY} L ${targetX} ${targetY}`}
+                stroke="#fe53bb"
+                strokeWidth="1.5"
+                fill="none"
+                markerEnd="url(#arrowhead)"
+              />
+            );
+          })}
+        </motion.svg>
       )}
     </motion.div>
   );

@@ -141,3 +141,27 @@ next-env.d.ts
 /edge-profile-lan/
 .playwright/
 
+# =========================
+# 7. Media & Screenshots
+# =========================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.mp4
+screenshots/
+
+# =========================
+# 8. Temporary Test/Debug/Tracer Scripts
+# =========================
+take_screenshots.js
+take_screenshots_*.js
+take_screenshots/
+debug_steps.py
+debug_*.py
+test_*.py
+verify_*.py
+print_*.py
+fetch_*.py
+

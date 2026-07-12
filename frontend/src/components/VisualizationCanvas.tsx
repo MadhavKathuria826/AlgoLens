@@ -58,7 +58,7 @@ export default function VisualizationCanvas({ step, code, isFullscreen, onToggle
   }
 
   const anyArrayIterated = step.visualizations.some((v: any) => 
-    v.type === 'Array' && activeLoopLine.includes(v.details.name)
+    (v.type === 'Array' || v.type === 'DP_TABLE') && activeLoopLine.includes(v.details.name)
   );
 
   const hasTree = step.isTreeAlgorithm || (step.heap && Object.keys(step.heap).some(k => step.heap[k].fields && ('left' in step.heap[k].fields || 'right' in step.heap[k].fields)));
@@ -74,6 +74,7 @@ export default function VisualizationCanvas({ step, code, isFullscreen, onToggle
             {step.visualizations.map((vis: any, index: number) => {
             switch (vis.type) {
               case 'Array':
+              case 'DP_TABLE':
                 if (hasTree || hasLinkedList) return null;
 
                 const isCurrentlyIterated = activeLoopLine.includes(vis.details.name);
@@ -140,6 +141,7 @@ export default function VisualizationCanvas({ step, code, isFullscreen, onToggle
                     isCurrentlyIterated={isCurrentlyIterated}
                     isDimmed={isDimmed}
                     currentLineCode={currentLineCode}
+                    visualType={vis.type}
                   />
                 );
               case 'RecursionTree':
