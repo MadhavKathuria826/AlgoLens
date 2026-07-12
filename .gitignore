@@ -142,15 +142,15 @@ next-env.d.ts
 .playwright/
 
 # =========================
-# 7. Media & Screenshots
+# 7. Media & Screenshots (Root-level only to preserve subfolder assets)
 # =========================
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-*.mp4
-screenshots/
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.svg
+/*.mp4
+/screenshots/
 
 # =========================
 # 8. Temporary Test/Debug/Tracer Scripts
