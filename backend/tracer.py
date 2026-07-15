@@ -4,92 +4,6 @@ import copy
 from typing import List
 from models import Step, VisualizationData
 
-def is_dp_name(name: str) -> bool:
-    name_lower = name.lower()
-    allowed_terms = {'dp', 'memo', 'cache', 'table', 'dp_table', 'memo_table'}
-    if name_lower in allowed_terms:
-        return True
-    for term in allowed_terms:
-        if name_lower.startswith(term + '_') or name_lower.endswith('_' + term):
-            return True
-    return False
-
-def is_dp_shape(node_val) -> bool:
-    if node_val is None:
-        return False
-    if isinstance(node_val, ast.BinOp):
-        if isinstance(node_val.op, ast.Mult):
-            if isinstance(node_val.left, ast.List) or isinstance(node_val.right, ast.List):
-                return True
-    if isinstance(node_val, ast.ListComp):
-        if node_val.generators and len(node_val.generators) == 1:
-            gen = node_val.generators[0]
-            if isinstance(gen.iter, ast.Call) and getattr(gen.iter.func, 'id', None) == 'range':
-                return True
-    if isinstance(node_val, ast.Dict):
-        return True
-    if isinstance(node_val, ast.Call) and getattr(node_val.func, 'id', None) == 'dict':
-        return True
-    return False
-
-def dict_to_array(d):
-    if not d:
-        return []
-    keys = list(d.keys())
-    if all(isinstance(k, int) and k >= 0 for k in keys):
-        max_k = max(keys)
-        if max_k > 1000:
-            return []
-        arr = [None] * (max_k + 1)
-        for k, v in d.items():
-            arr[k] = v
-        return arr
-    elif all(isinstance(k, tuple) and len(k) == 2 and isinstance(k[0], int) and k[0] >= 0 and isinstance(k[1], int) and k[1] >= 0 for k in keys):
-        max_r = max(k[0] for k in keys)
-        max_c = max(k[1] for k in keys)
-        if max_r > 100 or max_c > 100:
-            return []
-        arr = [[None] * (max_c + 1) for _ in range(max_r + 1)]
-        for (r, c), v in d.items():
-            arr[r][c] = v
-        return arr
-    return []
-
-def get_slice_node(subscript_node):
-    sl = subscript_node.slice
-    if isinstance(sl, ast.Index):
-        return sl.value
-    return sl
-
-def eval_ast_node(node, globals_dict, locals_dict):
-    try:
-        expr = ast.Expression(body=node)
-        code_obj = compile(expr, '<string>', 'eval')
-        return eval(code_obj, globals_dict, locals_dict)
-    except Exception:
-        return None
-
-def resolve_subscript(node, globals_dict, locals_dict):
-    if not isinstance(node, ast.Subscript):
-        return None
-    
-    # 1D: base is Name
-    if isinstance(node.value, ast.Name):
-        idx = eval_ast_node(get_slice_node(node), globals_dict, locals_dict)
-        if isinstance(idx, int) and idx >= 0:
-            return node.value.id, idx
-        return None
-        
-    # 2D: base is Subscript, and its base is Name
-    if isinstance(node.value, ast.Subscript) and isinstance(node.value.value, ast.Name):
-        idx2 = eval_ast_node(get_slice_node(node), globals_dict, locals_dict)
-        idx1 = eval_ast_node(get_slice_node(node.value), globals_dict, locals_dict)
-        if isinstance(idx1, int) and idx1 >= 0 and isinstance(idx2, int) and idx2 >= 0:
-            return node.value.value.id, (idx1, idx2)
-        return None
-        
-    return None
-
 class Tracer:
     def __init__(self):
         self.steps: List[Step] = []
@@ -103,30 +17,6 @@ class Tracer:
         self.call_id_counter = 0
         self.tree_nodes = [] # Tracks all nodes in the current execution tree
         self.active_tree = False
-        self.dp_vars = set()
-        self.non_dp_vars = set()
-
-    def find_first_assignment_rhs(self, target_name: str):
-        if not hasattr(self, 'ast_nodes_list'):
-            return None
-        for node in self.ast_nodes_list:
-            if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                targets = []
-                if isinstance(node, ast.Assign):
-                    for t in node.targets:
-                        if isinstance(t, ast.Name):
-                            targets.append(t.id)
-                        elif isinstance(t, (ast.Tuple, ast.List)):
-                            for elt in t.elts:
-                                if isinstance(elt, ast.Name):
-                                    targets.append(elt.id)
-                else: # AnnAssign
-                    if isinstance(node.target, ast.Name):
-                        targets.append(node.target.id)
-                
-                if target_name in targets:
-                    return node.value
-        return None
 
     def parse_ast_mapping(self, code: str):
         tree = ast.parse(code)
@@ -143,7 +33,7 @@ class Tracer:
         if event in ('call', 'line', 'return'):
             filename = frame.f_code.co_filename
             if filename != "<string>":
-                return self.trace_calls
+                return None
             
             func_name = frame.f_code.co_name
             lineno = frame.f_lineno
@@ -263,62 +153,14 @@ class Tracer:
                     if inspect.isclass(value) or inspect.ismodule(value) or inspect.isroutine(value):
                         continue
                     
-                    is_dp = name in self.dp_vars
-                    if not is_dp and name not in self.non_dp_vars:
-                        if is_dp_name(name):
-                            rhs = self.find_first_assignment_rhs(name)
-                            if rhs is not None and is_dp_shape(rhs):
-                                self.dp_vars.add(name)
-                                is_dp = True
-                            else:
-                                self.non_dp_vars.add(name)
-                        else:
-                            self.non_dp_vars.add(name)
-
-                    if (isinstance(value, list) or (isinstance(value, dict) and is_dp)) and not self.active_tree:
-                        vis_type = 'DP_TABLE' if is_dp else 'Array'
-                        val_to_serialize = dict_to_array(value) if isinstance(value, dict) else list(value)
-                        
+                    if isinstance(value, list) and not self.active_tree:
                         details = {
                             'name': name,
-                            'value': val_to_serialize,
-                            'obj_id': f"{'dict' if isinstance(value, dict) else 'list'}_{id(value)}"
+                            'value': list(value),
+                            'obj_id': f"list_{id(value)}"
                         }
-                        
-                        if is_dp:
-                            target_res = None
-                            sources_res = []
-                            if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                                targets_lhs = []
-                                if isinstance(node, ast.Assign):
-                                    targets_lhs = node.targets
-                                else:
-                                    targets_lhs = [node.target]
-                                    
-                                for target_node in targets_lhs:
-                                    res = resolve_subscript(target_node, frame.f_globals, frame.f_locals)
-                                    if res is not None and res[0] == name:
-                                        target_res = res[1]
-                                        break
-                                
-                                if target_res is not None:
-                                    skipped = set()
-                                    for child in ast.walk(node.value):
-                                        if child in skipped:
-                                            continue
-                                        res = resolve_subscript(child, frame.f_globals, frame.f_locals)
-                                        if res is not None and res[0] == name:
-                                            sources_res.append(res[1])
-                                            if isinstance(child, ast.Subscript) and isinstance(child.value, ast.Subscript):
-                                                skipped.add(child.value)
-                                                
-                            if target_res is not None:
-                                details['target'] = target_res
-                                if sources_res:
-                                    details['sources'] = sources_res
-                                    
                         visualizations.append(VisualizationData(
-                            type=vis_type,
+                            type='Array',
                             details=details
                         ))
                     else:

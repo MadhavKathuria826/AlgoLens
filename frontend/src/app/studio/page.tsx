@@ -48,6 +48,30 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
   }, [isFullscreen]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const mockName = params.get('mock');
+    const stepStr = params.get('step');
+    if (mockName) {
+      setIsLoading(true);
+      fetch(`/mocks/${mockName}.json`)
+        .then(res => res.json())
+        .then(data => {
+          setCode(data.code);
+          setSteps(data.steps);
+          if (stepStr) {
+            setCurrentStepIdx(parseInt(stepStr, 10));
+          }
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error("Failed to load mock", err);
+          setIsLoading(false);
+        });
+    }
+  }, []);
+
+  useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     if (isPlaying && steps.length > 0) {
@@ -119,7 +143,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           }
           if (s && s.visualizations) {
             s.visualizations.forEach((v: any) => {
-              if ((v.type === 'Array' || v.type === 'DP_TABLE') && v.details && v.details.name) {
+              if (v.type === 'Array' && v.details && v.details.name) {
                 inputs[v.details.name] = v.details.value;
               }
               if (v.type === 'Variable' || v.type === 'Loop') {
@@ -141,7 +165,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           if (step.visualizations) {
              const currentMem = globalAnalyzer.getMemory();
              step.visualizations.forEach((v: any) => {
-                if ((v.type === 'Array' || v.type === 'DP_TABLE') && v.details && v.details.name && v.details.obj_id) {
+                if (v.type === 'Array' && v.details && v.details.name && v.details.obj_id) {
                    const varName = v.details.name;
                    const objId = v.details.obj_id;
                    const mem = currentMem[varName];
@@ -178,7 +202,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
              let globalId = globalSemanticMemory[k];
 
              // Check if it's an Array with an obj_id identity first
-             const vis = step.visualizations?.find((v: any) => (v.type === 'Array' || v.type === 'DP_TABLE') && v.details?.name === k);
+             const vis = step.visualizations?.find((v: any) => v.type === 'Array' && v.details?.name === k);
              if (vis && vis.details.obj_id && objIdRoles[vis.details.obj_id]) {
                  globalId = objIdRoles[vis.details.obj_id];
              }
@@ -363,6 +387,8 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
             <div className="flex-1 relative overflow-hidden w-full h-full">
               <VisualizationCanvas 
                 step={currentStep} 
+                steps={steps}
+                currentStepIdx={currentStepIdx}
                 code={code} 
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}

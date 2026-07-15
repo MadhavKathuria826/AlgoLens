@@ -58,9 +58,12 @@ def execute_code(request: CodeExecutionRequest):
             except ValueError as e:
                 return CodeExecutionResponse(steps=[], error=str(e))
             
-    tracer = Tracer()
+    from dp_tracer import run_dp_tracer
     try:
-        steps = tracer.run_code(request.code, request.max_recursion_depth)
+        steps = run_dp_tracer(request.code)
+        if steps is None:
+            tracer = Tracer()
+            steps = tracer.run_code(request.code, request.max_recursion_depth)
         return CodeExecutionResponse(steps=steps)
     except Exception as e:
         return CodeExecutionResponse(steps=[], error=str(e))

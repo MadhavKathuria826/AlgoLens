@@ -11,8 +11,9 @@ import DequeVisualizer from './visualizers/DequeVisualizer';
 import TreeVisualizer from './visualizers/TreeVisualizer';
 import HeapVisualizer from './visualizers/HeapVisualizer';
 import Viewport from './Viewport';
+import DPVisualizer from './visualizers/DPVisualizer';
 
-export default function VisualizationCanvas({ step, code, isFullscreen, onToggleFullscreen }: any) {
+export default function VisualizationCanvas({ step, steps = [], currentStepIdx = 0, code, isFullscreen, onToggleFullscreen }: any) {
   if (!step || !step.visualizations || step.visualizations.length === 0) {
     return <div className="flex-1 flex items-center justify-center text-slate-500 font-light text-lg">Run code to see the algorithm</div>;
   }
@@ -58,7 +59,7 @@ export default function VisualizationCanvas({ step, code, isFullscreen, onToggle
   }
 
   const anyArrayIterated = step.visualizations.some((v: any) => 
-    (v.type === 'Array' || v.type === 'DP_TABLE') && activeLoopLine.includes(v.details.name)
+    v.type === 'Array' && activeLoopLine.includes(v.details.name)
   );
 
   const hasTree = step.isTreeAlgorithm || (step.heap && Object.keys(step.heap).some(k => step.heap[k].fields && ('left' in step.heap[k].fields || 'right' in step.heap[k].fields)));
@@ -73,8 +74,20 @@ export default function VisualizationCanvas({ step, code, isFullscreen, onToggle
           <AnimatePresence mode="popLayout">
             {step.visualizations.map((vis: any, index: number) => {
             switch (vis.type) {
-              case 'Array':
               case 'DP_TABLE':
+              case 'MEMOIZATION':
+                if (hasTree || hasLinkedList) return null;
+                return (
+                  <DPVisualizer
+                    key={`dp-${vis.details.name || index}`}
+                    data={vis.details}
+                    steps={steps}
+                    currentStepIdx={currentStepIdx}
+                    locals={activeLocals}
+                    currentLineCode={currentLineCode}
+                  />
+                );
+              case 'Array':
                 if (hasTree || hasLinkedList) return null;
 
                 const isCurrentlyIterated = activeLoopLine.includes(vis.details.name);

@@ -3,7 +3,6 @@
 @theme {
   --color-brand-teal: #00e5ff;
   --color-brand-cyan: #09fbd3;
-  --color-brand-violet: #fe53bb;
   --color-brand-cream: #f8f9fa;
   --color-brand-coral: #ff2a2a;
   
@@ -62,7 +61,6 @@
     --color-brand-teal: #f4d03f;
     --color-brand-cyan: #3498db;
     --color-brand-coral: #8e44ad;
-    --color-brand-violet: #e67e22;
   }
 
   html.hide-value-labels .node-value {

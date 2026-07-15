@@ -1,0 +1,4615 @@
+{
+  "steps": [
+    {
+      "step_number": 1,
+      "line_number": 2,
+      "event_type": "line",
+      "locals": {},
+      "heap": {},
+      "visualizations": []
+    },
+    {
+      "step_number": 2,
+      "line_number": 3,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby"
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby"
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 3,
+      "line_number": 4,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby",
+            "m": 3,
+            "n": 4
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 4,
+      "line_number": 4,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "_": 0
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby",
+            "m": 3,
+            "n": 4,
+            "_": 0
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 5,
+      "line_number": 4,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "_": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby",
+            "m": 3,
+            "n": 4,
+            "_": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 6,
+      "line_number": 4,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "_": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby",
+            "m": 3,
+            "n": 4,
+            "_": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 7,
+      "line_number": 4,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "_": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Variable",
+          "details": {
+            "word1": "abc",
+            "word2": "yaby",
+            "m": 3,
+            "n": 4,
+            "_": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 8,
+      "line_number": 5,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 5,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 9,
+      "line_number": 6,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 0
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              0
+            ],
+            "sources": [],
+            "target_value": 0
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 10,
+      "line_number": 5,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 0
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 5,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 0
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 11,
+      "line_number": 6,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              1,
+              0
+            ],
+            "sources": [],
+            "target_value": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 12,
+      "line_number": 5,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 5,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 13,
+      "line_number": 6,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              2,
+              0
+            ],
+            "sources": [],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 14,
+      "line_number": 5,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 5,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 15,
+      "line_number": 6,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              3,
+              0
+            ],
+            "sources": [],
+            "target_value": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 16,
+      "line_number": 5,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 5,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 17,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 18,
+      "line_number": 8,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 0
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              0
+            ],
+            "sources": [],
+            "target_value": 0
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 19,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 0
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 0
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 20,
+      "line_number": 8,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              1
+            ],
+            "sources": [],
+            "target_value": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 21,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 1
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 22,
+      "line_number": 8,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              2
+            ],
+            "sources": [],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 23,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 2
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 24,
+      "line_number": 8,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              3
+            ],
+            "sources": [],
+            "target_value": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 25,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 26,
+      "line_number": 8,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              0,
+              4
+            ],
+            "sources": [],
+            "target_value": 4
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 27,
+      "line_number": 7,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 7,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 28,
+      "line_number": 10,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 10,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 29,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 30,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 31,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              1,
+              1
+            ],
+            "sources": [
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ],
+            "target_value": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 32,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 1
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 33,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 34,
+      "line_number": 13,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              1,
+              2
+            ],
+            "sources": [
+              [
+                0,
+                1
+              ]
+            ],
+            "target_value": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 35,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 2
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 36,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 37,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              1,
+              3
+            ],
+            "sources": [
+              [
+                0,
+                3
+              ],
+              [
+                1,
+                2
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 38,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 39,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 40,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              1,
+              4
+            ],
+            "sources": [
+              [
+                0,
+                4
+              ],
+              [
+                1,
+                3
+              ],
+              [
+                0,
+                3
+              ]
+            ],
+            "target_value": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 41,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 42,
+      "line_number": 10,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 1,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 10,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 1,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 43,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 44,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 45,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              2,
+              1
+            ],
+            "sources": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 46,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 1
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 47,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 48,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              2,
+              2
+            ],
+            "sources": [
+              [
+                1,
+                2
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                1,
+                1
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 49,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 2
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 50,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 51,
+      "line_number": 13,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              2,
+              3
+            ],
+            "sources": [
+              [
+                1,
+                2
+              ]
+            ],
+            "target_value": 1
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 52,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 53,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 54,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              2,
+              4
+            ],
+            "sources": [
+              [
+                1,
+                4
+              ],
+              [
+                2,
+                3
+              ],
+              [
+                1,
+                3
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 55,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 56,
+      "line_number": 10,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 2,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 10,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 2,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 57,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 58,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 59,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              3,
+              1
+            ],
+            "sources": [
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                0
+              ],
+              [
+                2,
+                0
+              ]
+            ],
+            "target_value": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 60,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 1
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 1
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 61,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 62,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              3,
+              2
+            ],
+            "sources": [
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "target_value": 3
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 63,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 2
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 2
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 64,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 65,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              3,
+              3
+            ],
+            "sources": [
+              [
+                2,
+                3
+              ],
+              [
+                3,
+                2
+              ],
+              [
+                2,
+                2
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 66,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 3
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 3
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 67,
+      "line_number": 12,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Condition",
+          "details": {
+            "line": 12
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 68,
+      "line_number": 15,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ],
+            "target": [
+              3,
+              4
+            ],
+            "sources": [
+              [
+                2,
+                4
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                2,
+                3
+              ]
+            ],
+            "target_value": 2
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 69,
+      "line_number": 11,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 11,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 70,
+      "line_number": 10,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "Loop",
+          "details": {
+            "line": 10,
+            "locals": {
+              "word1": "abc",
+              "word2": "yaby",
+              "m": 3,
+              "n": 4,
+              "i": 3,
+              "j": 4
+            }
+          }
+        },
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 71,
+      "line_number": 16,
+      "event_type": "line",
+      "locals": {
+        "word1": "abc",
+        "word2": "yaby",
+        "m": 3,
+        "n": 4,
+        "i": 3,
+        "j": 4
+      },
+      "heap": {},
+      "visualizations": [
+        {
+          "type": "DP_TABLE",
+          "details": {
+            "name": "dp",
+            "value": [
+              [
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              [
+                1,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                2,
+                2,
+                1,
+                2
+              ],
+              [
+                3,
+                3,
+                3,
+                2,
+                2
+              ]
+            ],
+            "obj_id": "list_1324204556160",
+            "dimensions": 2,
+            "table_shape": [
+              4,
+              5
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step_number": 72,
+      "line_number": 17,
+      "event_type": "return",
+      "locals": {},
+      "heap": {},
+      "visualizations": []
+    }
+  ],
+  "code": "\ndef min_edit_distance(word1, word2):\n    m, n = len(word1), len(word2)\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n    for i in range(m + 1):\n        dp[i][0] = i\n    for j in range(n + 1):\n        dp[0][j] = j\n        \n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if word1[i-1] == word2[j-1]:\n                dp[i][j] = dp[i-1][j-1]\n            else:\n                dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])\n    return dp[m][n]\nmin_edit_distance(\"abc\", \"yaby\")\n"
+}
