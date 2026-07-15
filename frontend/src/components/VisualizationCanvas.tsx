@@ -70,7 +70,7 @@ export default function VisualizationCanvas({ step, steps = [], currentStepIdx =
       <Viewport isFullscreen={isFullscreen} onToggleFullscreen={onToggleFullscreen}>
         <div className="visualization-content-root flex flex-col items-center justify-center gap-8 min-w-max p-8">
           {hasLinkedList && <LinkedListVisualizer heap={step.heap} locals={activeLocals} />}
-          {hasTree && <TreeVisualizer heap={step.heap} locals={activeLocals} />}
+          {hasTree && <TreeVisualizer heap={step.heap} locals={activeLocals} step={step} />}
           <AnimatePresence mode="popLayout">
             {step.visualizations.map((vis: any, index: number) => {
             switch (vis.type) {

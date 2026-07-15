@@ -58,12 +58,18 @@ def execute_code(request: CodeExecutionRequest):
             except ValueError as e:
                 return CodeExecutionResponse(steps=[], error=str(e))
             
+    from avl_classifier import classify_avl
+    from avl_tracer import run_avl_tracer
     from dp_tracer import run_dp_tracer
     try:
-        steps = run_dp_tracer(request.code)
-        if steps is None:
-            tracer = Tracer()
-            steps = tracer.run_code(request.code, request.max_recursion_depth)
+        avl_res = classify_avl(request.code)
+        if avl_res["is_avl"]:
+            steps = run_avl_tracer(request.code)
+        else:
+            steps = run_dp_tracer(request.code)
+            if steps is None:
+                tracer = Tracer()
+                steps = tracer.run_code(request.code, request.max_recursion_depth)
         return CodeExecutionResponse(steps=steps)
     except Exception as e:
         return CodeExecutionResponse(steps=[], error=str(e))

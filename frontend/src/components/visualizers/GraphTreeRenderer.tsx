@@ -14,6 +14,10 @@ export type GraphNode = {
   tooltipComponent?: React.ReactNode;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  balanceFactor?: number;
+  isNew?: boolean;
+  isUnbalanced?: boolean;
+  isRotationPivot?: boolean;
 };
 
 export type GraphEdge = {
@@ -153,7 +157,13 @@ export default function GraphTreeRenderer({
         <AnimatePresence>
           {nodes.map(node => {
             let bgClass = 'bg-slate-800 border-slate-500 text-slate-300';
-            if (node.isHovered) {
+            if (node.isNew) {
+              bgClass = 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.6)]';
+            } else if (node.isUnbalanced) {
+              bgClass = 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)]';
+            } else if (node.isRotationPivot) {
+              bgClass = 'bg-amber-600 border-amber-400 text-white shadow-[0_0_15px_rgba(251,191,36,0.6)]';
+            } else if (node.isHovered) {
               bgClass = 'bg-sky-600 border-sky-400 text-white shadow-[0_0_15px_rgba(56,189,248,0.5)]';
             } else if (node.isActivePath) {
               bgClass = 'bg-sky-600 border-sky-400 text-white shadow-[0_0_15px_rgba(56,189,248,0.5)]';
@@ -187,6 +197,11 @@ export default function GraphTreeRenderer({
                 onMouseLeave={node.onMouseLeave}
               >
                 {node.val !== undefined ? String(node.val) : ''}
+                {node.balanceFactor !== undefined && (
+                  <span className="absolute -top-3 -right-3 text-[9px] bg-slate-800 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/50 font-sans font-extrabold shadow-[0_0_8px_rgba(34,211,238,0.3)]">
+                    BF:{node.balanceFactor}
+                  </span>
+                )}
                 {node.tooltipComponent}
               </motion.div>
             );

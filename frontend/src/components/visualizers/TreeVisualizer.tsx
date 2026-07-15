@@ -10,7 +10,8 @@ type LayoutNode = {
   right?: string;
 };
 
-export default function TreeVisualizer({ heap, locals }: { heap: any; locals: any }) {
+export default function TreeVisualizer({ heap, locals, step }: { heap: any; locals: any; step?: any }) {
+  const avlMetadata = step?.visualizations?.find((v: any) => v.type === 'AVL_METADATA')?.details;
   const prevPointersRef = useRef<Record<string, string>>({});
   const visitedNodesRef = useRef<Set<string>>(new Set());
   const activeFlowsRef = useRef<{ id: string; source: string; target: string; }[]>([]);
@@ -194,16 +195,27 @@ export default function TreeVisualizer({ heap, locals }: { heap: any; locals: an
   }
 
   // 5. Map to GraphTreeRenderer Format
-  const graphNodes: GraphNode[] = Object.values(layout.layout).map(node => ({
-    id: node.id,
-    x: node.x,
-    y: node.y,
-    val: node.val,
-    isLanded: landedNodes.has(node.id),
-    isCurrentTarget: !!nodePointers[node.id],
-    isActivePath: activePathNodes.has(node.id),
-    isVisited: visitedNodesRef.current.has(node.id)
-  }));
+  const graphNodes: GraphNode[] = Object.values(layout.layout).map(node => {
+    const isNew = avlMetadata?.new_node_id === node.id || heap[node.id]?.fields?.is_new;
+    const isUnbalanced = avlMetadata?.unbalanced_node === node.id;
+    const isRotationPivot = avlMetadata?.rotation_nodes?.includes(node.id) && node.id !== avlMetadata?.unbalanced_node;
+    const balanceFactor = heap[node.id]?.fields?.balance_factor;
+
+    return {
+      id: node.id,
+      x: node.x,
+      y: node.y,
+      val: node.val,
+      isLanded: landedNodes.has(node.id) || isNew,
+      isCurrentTarget: !!nodePointers[node.id] || isUnbalanced,
+      isActivePath: activePathNodes.has(node.id) || avlMetadata?.insertion_path?.includes(node.id),
+      isVisited: visitedNodesRef.current.has(node.id),
+      balanceFactor,
+      isNew,
+      isUnbalanced,
+      isRotationPivot
+    };
+  });
 
   const graphEdges: GraphEdge[] = [];
   for (const node of Object.values(layout.layout)) {
@@ -239,7 +251,15 @@ export default function TreeVisualizer({ heap, locals }: { heap: any; locals: an
   }));
 
   return (
-    <div className="w-full h-full relative overflow-auto flex items-center justify-center p-8 bg-slate-900/50 rounded-xl border border-slate-700/50">
+    <div className="w-full h-full relative overflow-auto flex flex-col items-center justify-center p-8 bg-slate-900/50 rounded-xl border border-slate-700/50">
+      <div className="absolute top-4 right-4 text-[10px] font-mono text-slate-500 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 shadow-sm z-30">
+        BUILD-15
+      </div>
+      {avlMetadata?.status_message && (
+        <div className="mb-4 px-4 py-2 bg-slate-800/80 border border-slate-700 text-cyan-300 rounded-lg text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+          {avlMetadata.status_message}
+        </div>
+      )}
       <GraphTreeRenderer
         nodes={graphNodes}
         edges={graphEdges}
