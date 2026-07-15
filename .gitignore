@@ -164,4 +164,6 @@ test_*.py
 verify_*.py
 print_*.py
 fetch_*.py
-
+scratch_*.py
+query_*.py
+generate_mocks.py
