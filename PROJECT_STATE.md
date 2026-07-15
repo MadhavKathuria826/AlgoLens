@@ -118,7 +118,7 @@ We recently identified and resolved several critical runtime and layout failures
 6. **Mobile WebKit Prefixes**: Integrated `-webkit-backdrop-filter` for logo lens blurs and added `will-change: clip-path` + `transform: translateZ(0)` hardware acceleration tags to the Studio page transition overlay to fix WebKit layout render freezes.
 7. **Animation Throttling Fallback**: Built in robust fallback timeouts (4s) to the transition animation. If mobile browsers throttle `requestAnimationFrame` (e.g., in battery-saver mode), the router forces navigation to prevent users from getting stuck.
 8. **WebGL Thread Throttling**: Added dynamic `frameloop={appState === 'studio' ? 'never' : 'always'}` to the `<Canvas>` wrapper to pause rendering while in the code editor, freeing GPU resources and extending mobile battery life.
-9. **Git Index Ignore Rules**: Configured `.gitignore` to prevent generated screenshot outputs (`*.png`), static JSON mock files (`frontend/public/mocks/`), and local script tools (`scratch_*.py`, `query_*.py`, `generate_mocks.py`) from cluttering the working tree. Untracked them from git cache across `main` and `v1.4` branches.
+9. **Git Index Ignore Rules**: Configured `.gitignore` to prevent generated screenshot outputs (`*.png`) and local script tools (`scratch_*.py`, `query_*.py`, `generate_mocks.py`) from cluttering the working tree. Untracked them from git cache across `main` and `v1.4` branches. As of the current change, `frontend/public/mocks/` (static JSON mock files) was also added to `.gitignore` and successfully untracked.
 
 ---
 
