@@ -49,11 +49,40 @@ Animations are strictly controlled to prevent layout distortion:
 
 ---
 
+## 3.5. Dynamic Programming (DP) Visualization System
+
+The project incorporates a dynamic detection, execution tracing, and rendering pipeline specifically designed for Dynamic Programming (DP) algorithms (both Tabulation and Memoization).
+
+### A. Detection & Classification Layer (`dp_classifier.py`)
+Two independent pure-function AST classifiers automatically identify DP patterns:
+*   **Tabulation (`classify_tabulation`)**: Permissive, single-signal classifier detecting loop variables index mutations inside subscript assignments (e.g. `dp[i] = dp[i-1] + dp[i-2]`).
+*   **Memoization (`classify_memoization`)**: Strict, multi-signal classifier requiring the coexistence of recursion, cache check (via decorators or manual lookup), cache write, and parameter-derived keys.
+
+### B. Trace Processing & Annotations (`dp_tracer.py`)
+Intercepts execution steps and packages them into rich visualization-ready outputs:
+*   **Tabulation post-processor**: Resolves array shape bounds (`table_shape`) and highlights the target index vs source cell dependencies. 
+    *   *Sequencing Fix*: Replaced structural Pydantic step comparison (`steps.index(step)`) with exact sequence tracking (`enumerate(steps)`) to eliminate frame update offsets and ensure values are visualized in the grid during writes.
+*   **Memoization tracing engine**:
+    *   Tracks recursive step sequences (`call`, `cache_hit`, `cache_write` events) along with local scopes and return values.
+    *   *Line Number Propagation Fix*: Integrated call stack and frame inspection (`sys._getframe(2)` / `frame.f_lineno`) to track and pass the active code line numbers to the steps. This enables active line highlighting in Monaco and dynamic step explanations in the Inspector.
+
+### C. Frontend Visualization (`DPVisualizer.tsx` - BUILD-14)
+Renders a custom UI separate from standard data structures:
+*   **Tabulation**: Renders a fixed-size ghost matrix mapping the DP table shape. Target cells highlight in Electric Indigo, while source cells highlight in Emerald.
+*   **Memoization**: Tracks recursive caches.
+    *   *Call Stack Fix*: Updated depth tracking (`depth = d.call_depth`) to correctly render multi-level active recursion breadcrumbs (e.g., `5 → 4 → 3 → 1`) instead of a single element.
+    *   Hit events pulse existing cache entries dynamically without duplicates.
+
+---
+
 ## 4. Current File Map
 
 ### Python Backend
 *   `run_tracer.py`: The entrypoint script for executing code and calling the tracer.
 *   `tracer.py`: The core tracing class and polyfills.
+*   `dp_classifier.py`: Pure-function AST classifiers for DP detection.
+*   `dp_tracer.py`: Post-processors and recursion tracing engines for DP visualization.
+*   `generate_mocks.py`: Mock data generator to export static visualizer JSON runs.
 
 ### Frontend Components (`/frontend/src/components/`)
 *   `VisualizationCanvas.tsx`: The primary orchestrator handling canvas state and component routing.
@@ -62,6 +91,7 @@ Animations are strictly controlled to prevent layout distortion:
 *   `visualizers/HeapVisualizer.tsx`: The topology adapter bridging a 1D array into the GraphTreeRenderer.
 *   `visualizers/TreeVisualizer.tsx`: The topology adapter for object-based trees.
 *   `visualizers/ArrayVisualizer.tsx`: Standard 1D flexbox array rendering.
+*   `visualizers/DPVisualizer.tsx`: Visualizer component for DP tabulation grids and memoization logs.
 *   *(Other Visualizers)*: `StackVisualizer.tsx`, `QueueVisualizer.tsx`, `DequeVisualizer.tsx`, `LinkedListVisualizer.tsx`.
 
 ### Core Application pages (`/frontend/src/app/`)
@@ -88,6 +118,7 @@ We recently identified and resolved several critical runtime and layout failures
 6. **Mobile WebKit Prefixes**: Integrated `-webkit-backdrop-filter` for logo lens blurs and added `will-change: clip-path` + `transform: translateZ(0)` hardware acceleration tags to the Studio page transition overlay to fix WebKit layout render freezes.
 7. **Animation Throttling Fallback**: Built in robust fallback timeouts (4s) to the transition animation. If mobile browsers throttle `requestAnimationFrame` (e.g., in battery-saver mode), the router forces navigation to prevent users from getting stuck.
 8. **WebGL Thread Throttling**: Added dynamic `frameloop={appState === 'studio' ? 'never' : 'always'}` to the `<Canvas>` wrapper to pause rendering while in the code editor, freeing GPU resources and extending mobile battery life.
+9. **Git Index Ignore Rules**: Configured `.gitignore` to prevent generated screenshot outputs (`*.png`), static JSON mock files (`frontend/public/mocks/`), and local script tools (`scratch_*.py`, `query_*.py`, `generate_mocks.py`) from cluttering the working tree. Untracked them from git cache across `main` and `v1.4` branches.
 
 ---
 
