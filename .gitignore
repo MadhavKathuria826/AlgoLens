@@ -167,3 +167,4 @@ fetch_*.py
 scratch_*.py
 query_*.py
 generate_mocks.py
+frontend/public/mocks/
