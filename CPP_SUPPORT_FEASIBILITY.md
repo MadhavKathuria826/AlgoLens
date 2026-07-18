@@ -95,3 +95,20 @@ To integrate C++ support, we would need to create the following new files in the
 - **Python (Current)**: **Low-Medium Complexity**. Introspection is natively supported (`sys.settrace` returns clean locals, AST module is built-in).
 - **C++ (Proposed)**: **High Complexity**. Requires cross-process orchestration (GDB/Pipes), parsing raw pointers/memory addresses from GDB outputs to rebuild heap node layouts, and configuring container system call sandboxes.
 - **Overall Estimate**: Implementing the C++ pipeline would require roughly **3-4 weeks** of dedicated backend development.
+
+---
+
+## 5. Gaps & Architecture Decisions
+
+### Gap 1: gVisor Local Development Setup
+- **Windows Dev Environment Requirements**: `gVisor` (`runsc`) relies on Linux kernel primitives (e.g. `ptrace`/KVM) and cannot run natively on Windows. It requires WSL2 with Docker Desktop configured to use `runsc` as a container runtime.
+- **WSL2 Stability**: Running Docker inside WSL2 with nested gVisor system call filters is known to be unstable for day-to-day work, frequently encountering nested virtualization lockups or configuration drift.
+- **Two-Tier Fallback Solution**: 
+  - **Local Development**: Run inside standard Docker containers using the default `runc` runtime, bypassing gVisor entirely. We enforce process timeouts (`timeout`) and basic memory bounds for sanity. Since code is pasted by the developer themselves, the lack of kernel-level sandboxing locally presents no security risk.
+  - **Production Environment**: Enforce the full Docker + gVisor (`runsc`) sandbox on the Linux hosting production environment to isolate untrusted public code executions.
+  - **Risk Assessment**: Safe from a host perspective. The main risk is **behavioral drift**: system calls or library functions allowed locally might be blocked by gVisor's system call filter in production. To mitigate this, staging CI/CD test passes must run on a native Linux server configured with gVisor.
+
+### Gap 2: Tracer Step Cap Truncation (300 Steps Limit)
+- **User Notification**: Truncation will NOT be silent. The backend will return an `is_truncated: true` flag in the response metadata. The frontend UI will display a prominent warning banner: *"Execution truncated at 300 steps — algorithm did not finish. Try running on a smaller input size."*
+- **Technical Ceiling vs. Soft Limit**: The 300-step cap is a **soft limit** chosen to optimize network transfer times and avoid blocking GDB Machine Interface step loops. It can be raised dynamically if requested, but it is bounded by the backend gateway timeout (typically 30 seconds).
+- **Truncation Detection Strategy**: Static analysis of loop boundaries is mathematically infeasible for arbitrary code (the Halting Problem). Instead, the tracer will **execute and count steps**. If the running step counter hits 300, the controller immediately kills the child GDB process, labels the trace metadata as truncated, and returns the accumulated 300 frames immediately for a fast, responsive user feedback loop.
