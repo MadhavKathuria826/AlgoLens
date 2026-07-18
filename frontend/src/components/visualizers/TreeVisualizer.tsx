@@ -263,7 +263,7 @@ export default function TreeVisualizer({ heap, locals, step }: { heap: any; loca
   return (
     <div className="w-full h-full relative overflow-auto flex flex-col items-center justify-center p-8 bg-slate-900/50 rounded-xl border border-slate-700/50">
       <div className="absolute top-4 right-4 text-[10px] font-mono text-slate-500 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 shadow-sm z-30">
-        BUILD-21
+        BUILD-22
       </div>
       {(avlMetadata?.status_message || rbtMetadata?.status_message) && (
         <div className="mb-4 px-4 py-2 bg-slate-800/80 border border-slate-700 text-cyan-300 rounded-lg text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(34,211,238,0.1)]">
