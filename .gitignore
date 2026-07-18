@@ -166,5 +166,9 @@ print_*.py
 fetch_*.py
 scratch_*.py
 query_*.py
+check_*.py
+find_*.py
+test_debug_*.py
 generate_mocks.py
 frontend/public/mocks/
+

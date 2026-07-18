@@ -196,7 +196,7 @@ export default function Home() {
   return (
     <div 
       ref={pageScopeRef} 
-      className="relative w-screen h-screen overflow-hidden text-[#8e8e95] selection:bg-[#bc7155]/20"
+      className="relative w-screen h-screen overflow-hidden text-[#8e8e95] selection:bg-brand-teal/20"
     >
       {/* Raw HTML style tag injection to force absolute body resets and scrollbar death */}
       <style dangerouslySetInnerHTML={{ __html: `
@@ -208,7 +208,7 @@ export default function Home() {
           margin: 0 !important;
           padding: 0 !important;
           position: fixed !important;
-          background-color: #000d10 !important; /* Force root dark base here */
+          background-color: var(--color-bg-app) !important; /* Force root dark base here */
         }
         ::-webkit-scrollbar {
           display: none !important;
@@ -258,7 +258,7 @@ export default function Home() {
               <SocialButton className="flex" />
               <button 
                 onClick={handleLaunch}
-                className="hidden sm:block px-4 py-1.5 sm:px-6 sm:py-2 border border-white text-white text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-all duration-150"
+                className="hidden sm:block px-4 py-1.5 sm:px-6 sm:py-2 border border-white text-white text-base sm:text-[18px] font-bold rounded-[1000px] hover:bg-white hover:text-[var(--color-bg-app)] transition-all duration-150"
               >
                 Studio
               </button>
@@ -308,7 +308,7 @@ export default function Home() {
                     animate={{ x: mousePos.x, y: mousePos.y }}
                     transition={{ type: "spring", stiffness: 150, damping: 15 }}
                     onClick={handleLaunch}
-                    className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors duration-150 text-base sm:text-[18px]"
+                    className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-3.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[var(--color-bg-app)] transition-colors duration-150 text-base sm:text-[18px]"
                   >
                     Launch Studio
                     <ArrowRight className="w-5 h-5" />

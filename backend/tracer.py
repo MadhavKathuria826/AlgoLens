@@ -4,6 +4,50 @@ import copy
 from typing import List
 from models import Step, VisualizationData
 
+def format_condition_with_values(node_test, frame):
+    if isinstance(node_test, ast.Compare):
+        try:
+            left_str = ast.unparse(node_test.left).strip()
+            left_val = eval(left_str, frame.f_globals, frame.f_locals)
+            left_repr = str(left_val)
+        except Exception:
+            left_repr = ast.unparse(node_test.left).strip()
+            
+        comparators_repr = []
+        for comp in node_test.comparators:
+            try:
+                comp_str = ast.unparse(comp).strip()
+                comp_val = eval(comp_str, frame.f_globals, frame.f_locals)
+                comparators_repr.append(str(comp_val))
+            except Exception:
+                comparators_repr.append(ast.unparse(comp).strip())
+                
+        op_map = {
+            ast.Eq: '==',
+            ast.NotEq: '!=',
+            ast.Lt: '<',
+            ast.LtE: '<=',
+            ast.Gt: '>',
+            ast.GtE: '>=',
+            ast.Is: 'is',
+            ast.IsNot: 'is not',
+            ast.In: 'in',
+            ast.NotIn: 'not in'
+        }
+        ops_str = [op_map.get(type(op), '?') for op in node_test.ops]
+        
+        result = left_repr
+        for op_s, comp_r in zip(ops_str, comparators_repr):
+            result += f" {op_s} {comp_r}"
+        return result
+    else:
+        try:
+            raw_str = ast.unparse(node_test).strip()
+            val = eval(raw_str, frame.f_globals, frame.f_locals)
+            return f"{raw_str} ({val})"
+        except Exception:
+            return ast.unparse(node_test).strip()
+
 class Tracer:
     def __init__(self):
         self.steps: List[Step] = []
@@ -181,9 +225,15 @@ class Tracer:
                 # 3. Line-specific actions
                 if event == 'line' and node:
                     if isinstance(node, ast.If):
+                        expr = format_condition_with_values(node.test, frame)
+                        raw_expr = ast.unparse(node.test).strip()
                         visualizations.append(VisualizationData(
                             type='Condition',
-                            details={'line': lineno}
+                            details={
+                                'line': lineno,
+                                'expression': f"{expr}?",
+                                'raw_expression': f"{raw_expr}?"
+                            }
                         ))
                     elif isinstance(node, (ast.For, ast.While)):
                         visualizations.append(VisualizationData(

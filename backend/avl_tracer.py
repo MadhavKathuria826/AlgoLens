@@ -100,6 +100,22 @@ def run_avl_tracer(code: str) -> List[Step]:
                 edges[(parent, right)] = 'right'
         return edges
 
+    import ast
+    try:
+        parsed_tree = ast.parse(code)
+    except Exception:
+        parsed_tree = None
+
+    def get_function_name(line_no):
+        if not parsed_tree:
+            return None
+        for node in ast.walk(parsed_tree):
+            if isinstance(node, ast.FunctionDef):
+                if hasattr(node, "end_lineno"):
+                    if node.lineno <= line_no <= node.end_lineno:
+                        return node.name
+        return None
+
     for i, step in enumerate(steps):
         should_complete_first_rotation = False
         # Analyze current tree state
@@ -110,6 +126,8 @@ def run_avl_tracer(code: str) -> List[Step]:
             if obj_id in nodes:
                 step.heap[obj_id]['fields']['height'] = heights.get(obj_id, 1)
                 step.heap[obj_id]['fields']['balance_factor'] = balance_factors.get(obj_id, 0)
+                step.heap[obj_id]['fields']['is_removed'] = False
+                step.heap[obj_id]['fields']['is_swapped'] = False
                 if obj_id == new_node_id:
                     step.heap[obj_id]['fields']['is_new'] = True
                 else:
@@ -227,14 +245,72 @@ def run_avl_tracer(code: str) -> List[Step]:
         # Filter out None elements from rotation nodes
         rotation_nodes = [r for r in rotation_nodes if r and r != 'None' and r in nodes]
 
-        # Generate status messages
-        if curr_ptr_node:
-            curr_val = nodes[curr_ptr_node].get('val')
-            status_message = f"Visiting node {curr_val} during insertion traversal."
-        elif new_node_id and new_node_id in nodes:
-            new_val = nodes[new_node_id].get('val')
-            status_message = f"Inserted new node {new_val}."
-        
+        # Determine function name and context
+        current_func = get_function_name(step.line_number)
+        is_deletion = current_func in ("delete", "_delete", "_get_min_value_node")
+
+        # Track deletion-specific nodes
+        removed_node = None
+        successor_swap_node = None
+
+        if is_deletion:
+            node_id = step.locals.get('node')
+            key = step.locals.get('key')
+            temp_id = step.locals.get('temp')
+
+            # Identify if we are at the target node
+            if node_id and node_id in nodes:
+                node_val = nodes[node_id].get('val')
+                if key == node_val:
+                    left_child = nodes[node_id].get('left')
+                    right_child = nodes[node_id].get('right')
+                    is_leaf = (not left_child or left_child == 'None') and (not right_child or right_child == 'None')
+                    is_one_child = not is_leaf and (not left_child or left_child == 'None' or not right_child or right_child == 'None')
+
+                    if is_leaf:
+                        removed_node = node_id
+                        status_message = f"Leaf deletion: removing node {node_val} (no children)."
+                    elif is_one_child:
+                        removed_node = node_id
+                        child_id = left_child if left_child and left_child != 'None' else right_child
+                        child_val = nodes[child_id].get('val') if child_id in nodes else 'None'
+                        status_message = f"One-child deletion: replacing node {node_val} with child {child_val}."
+                    else:
+                        # Two-child case (successor swap)
+                        successor_swap_node = node_id
+                        if temp_id and temp_id in nodes:
+                            removed_node = temp_id
+                            successor_val = nodes[temp_id].get('val')
+                            status_message = f"Two-child deletion: copying successor {successor_val}'s value into node {node_val}."
+                        else:
+                            status_message = f"Two-child deletion: finding in-order successor for node {node_val}."
+            
+            # If not already set, check for traversal or rebalancing
+            if not status_message:
+                if curr_ptr_node:
+                    curr_val = nodes[curr_ptr_node].get('val')
+                    status_message = f"Visiting node {curr_val} during deletion traversal."
+                elif node_id and node_id in nodes:
+                    node_val = nodes[node_id].get('val')
+                    status_message = f"Rebalancing node {node_val} after deletion."
+                else:
+                    status_message = "Returning from delete recursion."
+
+        else:
+            # Insertion context status messages
+            if curr_ptr_node:
+                curr_val = nodes[curr_ptr_node].get('val')
+                status_message = f"Visiting node {curr_val} during insertion traversal."
+            elif new_node_id and new_node_id in nodes:
+                new_val = nodes[new_node_id].get('val')
+                status_message = f"Inserted new node {new_val}."
+
+        # Mark removed and swapped node states in the heap fields for frontend mapping
+        if removed_node:
+            step.heap[removed_node]['fields']['is_removed'] = True
+        if successor_swap_node:
+            step.heap[successor_swap_node]['fields']['is_swapped'] = True
+
         if unbalanced_node and rotation_type != "none":
             unbalanced_val = nodes[unbalanced_node].get('val')
             # Check if this is a double rotation second step
@@ -286,6 +362,8 @@ def run_avl_tracer(code: str) -> List[Step]:
                 "rotation_nodes": rotation_nodes,
                 "insertion_path": copy.deepcopy(insertion_path),
                 "new_node_id": new_node_id,
+                "removed_node": removed_node,
+                "successor_swap_node": successor_swap_node,
                 "status_message": status_message
             }
         )

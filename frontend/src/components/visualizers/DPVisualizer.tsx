@@ -78,12 +78,12 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
               layoutId={`cell-${name}-${idx}`}
               className={`absolute inset-0 border flex items-center justify-center text-2xl font-mono rounded transition-colors duration-300 ${
                 isTarget
-                  ? 'border-indigo-400 bg-indigo-500/40 shadow-[0_0_20px_rgba(129,140,248,0.6)] text-white z-20'
+                  ? 'border-indigo-400 bg-indigo-600 shadow-[0_0_20px_rgba(129,140,248,0.8)] text-white z-20 font-bold'
                   : isSource
-                    ? 'border-emerald-400 bg-emerald-500/30 text-white z-10'
+                    ? 'border-emerald-400 bg-emerald-600 text-white z-10 font-bold'
                     : isRevealed
-                      ? 'border-slate-700 bg-slate-800/50 text-slate-200'
-                      : 'border-white/5 bg-white/[0.02] text-slate-700 opacity-30'
+                      ? 'border-slate-600 bg-slate-800 text-slate-200'
+                      : 'border-slate-800 bg-slate-950/40 text-slate-600 opacity-40'
               }`}
               animate={isTarget ? { scale: [1, 1.15, 1] } : {}}
             >
@@ -97,7 +97,7 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
     return (
       <div className="flex flex-col items-center gap-6 my-8 w-full relative">
         <div className="absolute top-0 right-4 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-          BUILD-15
+          BUILD-20
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
@@ -128,12 +128,12 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
               <motion.div
                 className={`absolute inset-0 border flex items-center justify-center text-xl font-mono rounded transition-colors duration-300 ${
                   isTarget
-                    ? 'border-indigo-400 bg-indigo-500/40 shadow-[0_0_20px_rgba(129,140,248,0.6)] text-white z-20'
+                    ? 'border-indigo-400 bg-indigo-600 shadow-[0_0_20px_rgba(129,140,248,0.8)] text-white z-20 font-bold'
                     : isSource
-                      ? 'border-emerald-400 bg-emerald-500/30 text-white z-10'
+                      ? 'border-emerald-400 bg-emerald-600 text-white z-10 font-bold'
                       : isRevealed
-                        ? 'border-slate-700 bg-slate-800/50 text-slate-200'
-                        : 'border-white/5 bg-white/[0.02] text-slate-700 opacity-20'
+                        ? 'border-slate-600 bg-slate-800 text-slate-200'
+                        : 'border-slate-800 bg-slate-950/40 text-slate-600 opacity-40'
                 }`}
                 animate={isTarget ? { scale: [1, 1.15, 1] } : {}}
               >
@@ -155,7 +155,7 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
     return (
       <div className="flex flex-col items-center gap-6 my-8 w-full relative">
         <div className="absolute top-0 right-4 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-          BUILD-15
+          BUILD-20
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
@@ -213,7 +213,7 @@ function MemoizationVisualizer({ data, steps, currentStepIdx }: { data: any, ste
   return (
     <div className="flex flex-col items-center gap-6 my-8 w-full max-w-lg relative">
       <div className="absolute top-0 right-0 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-        BUILD-15
+        BUILD-20
       </div>
       <div className="flex flex-col items-center gap-1">
         <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">Memoization Cache</div>

@@ -60,11 +60,16 @@ def execute_code(request: CodeExecutionRequest):
             
     from avl_classifier import classify_avl
     from avl_tracer import run_avl_tracer
+    from rbt_classifier import classify_rbt
+    from rbt_tracer import run_rbt_tracer
     from dp_tracer import run_dp_tracer
     try:
         avl_res = classify_avl(request.code)
+        rbt_res = classify_rbt(request.code)
         if avl_res["is_avl"]:
             steps = run_avl_tracer(request.code)
+        elif rbt_res["is_rbt"]:
+            steps = run_rbt_tracer(request.code)
         else:
             steps = run_dp_tracer(request.code)
             if steps is None:

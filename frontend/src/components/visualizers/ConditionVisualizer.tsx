@@ -14,8 +14,15 @@ export default function ConditionVisualizer({ data }: { data: any }) {
           animate={{ scale: [1, 1.05, 1], rotate: 45 }}
           transition={{ duration: 2, repeat: Infinity }}
         />
-        <div className="z-10 text-orange-400 font-mono text-xl font-bold text-center">
-          Branch<br/>Evaluation
+        <div className="z-10 flex flex-col items-center justify-center text-center p-3 select-none">
+          {data?.raw_expression && (
+            <div className="text-[10px] text-orange-500/60 font-mono font-medium max-w-[120px] truncate mb-1" title={data.raw_expression}>
+              {data.raw_expression}
+            </div>
+          )}
+          <div className="text-orange-400 font-mono text-xs sm:text-sm font-bold max-w-[120px] break-words leading-tight">
+            {data?.expression || "Branch Evaluation"}
+          </div>
         </div>
       </div>
     </motion.div>

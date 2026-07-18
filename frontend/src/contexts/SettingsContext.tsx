@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type UiMode = 'dark' | 'light' | 'high-contrast';
-export type EditorTheme = 'vs-dark' | 'dracula' | 'monokai' | 'light';
+export type UiMode = 'void' | 'slate' | 'obsidian';
+export type EditorTheme = 'vs-dark' | 'dracula' | 'monokai';
 export type GraphicsQuality = 'cinematic' | 'balanced' | 'performance';
 export type SpeedPreset = 'slow' | 'normal' | 'fast';
 export type NodeSize = 'small' | 'medium' | 'large';
@@ -37,7 +37,7 @@ export interface AppSettings {
 }
 
 export const defaultSettings: AppSettings = {
-  uiMode: 'dark',
+  uiMode: 'void',
   editorTheme: 'vs-dark',
   graphicsQuality: 'balanced',
   maxRecursionDepth: 1000,
@@ -72,7 +72,15 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     const saved = localStorage.getItem('algolens-settings');
     if (saved) {
       try {
-        setSettings({ ...defaultSettings, ...JSON.parse(saved) });
+        const parsed = JSON.parse(saved);
+        // Migration of deprecated/removed themes
+        if (parsed.uiMode === 'dark' || parsed.uiMode === 'light' || parsed.uiMode === 'midnight' || parsed.uiMode === 'high-contrast') {
+          parsed.uiMode = 'void';
+        }
+        if (parsed.editorTheme === 'light') {
+          parsed.editorTheme = 'vs-dark';
+        }
+        setSettings({ ...defaultSettings, ...parsed });
       } catch (e) {
         console.error("Failed to parse settings");
       }
@@ -85,16 +93,19 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     if (!isLoaded) return;
     const html = document.documentElement;
     html.classList.remove(
-      'dark', 'light', 'high-contrast', 
+      'dark', 'theme-void', 'theme-slate', 'theme-obsidian', 'theme-midnight', 'high-contrast', 
       'text-sm', 'text-base', 'text-lg', 
       'reduced-motion', 'color-blind-safe',
       'node-size-small', 'node-size-medium', 'node-size-large',
       'hide-value-labels', 'hide-index-annotations'
     );
     
-    if (settings.uiMode === 'dark') html.classList.add('dark');
-    if (settings.uiMode === 'light') html.classList.add('light');
-    if (settings.uiMode === 'high-contrast') html.classList.add('high-contrast', 'dark'); // High contrast is dark based
+    // All variants are dark-theme based
+    html.classList.add('dark');
+    
+    if (settings.uiMode === 'void') html.classList.add('theme-void');
+    if (settings.uiMode === 'slate') html.classList.add('theme-slate');
+    if (settings.uiMode === 'obsidian') html.classList.add('theme-obsidian');
 
     if (settings.reducedMotion) html.classList.add('reduced-motion');
     if (settings.colorBlindSafe) html.classList.add('color-blind-safe');

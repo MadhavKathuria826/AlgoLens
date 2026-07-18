@@ -8,6 +8,7 @@ def classify_avl(code: str) -> dict:
 
     has_height = False
     has_rotation = False
+    has_delete = False
     node_class_name = None
 
     class AVLVisitor(ast.NodeVisitor):
@@ -25,10 +26,12 @@ def classify_avl(code: str) -> dict:
             self.generic_visit(node)
 
         def visit_FunctionDef(self, node):
-            nonlocal has_rotation
+            nonlocal has_rotation, has_delete
             name_lower = node.name.lower()
             if any(term in name_lower for term in ('rotate', 'rebalance', 'balancefactor', 'getheight', 'get_height')):
                 has_rotation = True
+            if any(term in name_lower for term in ('delete', 'remove')):
+                has_delete = True
             self.generic_visit(node)
 
     visitor = AVLVisitor()
@@ -39,5 +42,6 @@ def classify_avl(code: str) -> dict:
     return {
         "is_avl": is_avl,
         "confidence": 1.0 if is_avl else 0.0,
-        "node_class_name": node_class_name
+        "node_class_name": node_class_name,
+        "has_delete": has_delete
     }

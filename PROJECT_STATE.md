@@ -122,12 +122,22 @@ We recently identified and resolved several critical runtime and layout failures
 
 ---
 
-## 6. Upcoming Roadmap
+## 6. Completed Tree Systems (Branch v1.5)
 
-With the current Heap/Array system, the unified `GraphTreeRenderer` now rock-solid, and remote LAN/Mobile execution completely stabilized, the next planned targets are:
-*   **AVL Trees**
-*   **Red-Black Trees**
-*   **Tries** 
+We have successfully fully integrated and validated the self-balancing binary search tree visualizations:
+1. **AVL Trees (Insertion & Deletion)**:
+   - Traversal and insertion-path tracking.
+   - LL/RR/LR/RL rotation classifications and live animated updates.
+   - Full tree deletion support (leaf deletion, one-child replacement, two-child successor swaps) with visual highlighting for swapped/deleted nodes.
+2. **Red-Black Trees (Insertion & Rebalancing)**:
+   - Dynamic node coloring (RED vs BLACK) mapping directly to custom glowing visual styles.
+   - Double-red violation highlights with warning states.
+   - Traversal path tracking, rotation classifications, and recoloring events.
+   - Live integration with code template selector inside the Monaco editor.
 
-These will cleanly slot into the existing architecture by writing thin adapters that calculate standard node positions and pipe them directly into `GraphTreeRenderer`.
-Updated buttons and settings 
+---
+
+## 7. Upcoming Roadmap
+
+With the AVL and Red-Black Tree subsystems fully integrated and running, the next planned target is:
+*   **Tries (Prefix Trees)**: Writing a trie-topological layout generator and piping it into the rendering engine.

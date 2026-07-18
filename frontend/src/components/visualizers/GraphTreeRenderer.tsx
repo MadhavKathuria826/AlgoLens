@@ -18,6 +18,10 @@ export type GraphNode = {
   isNew?: boolean;
   isUnbalanced?: boolean;
   isRotationPivot?: boolean;
+  isRemoved?: boolean;
+  isSwapped?: boolean;
+  color?: 'RED' | 'BLACK';
+  isDoubleRed?: boolean;
 };
 
 export type GraphEdge = {
@@ -157,7 +161,13 @@ export default function GraphTreeRenderer({
         <AnimatePresence>
           {nodes.map(node => {
             let bgClass = 'bg-slate-800 border-slate-500 text-slate-300';
-            if (node.isNew) {
+            if (node.isRemoved) {
+              bgClass = 'bg-red-950/80 border-red-500 text-red-200 shadow-[0_0_20px_rgba(239,68,68,0.7)] opacity-70 animate-pulse';
+            } else if (node.isSwapped) {
+              bgClass = 'bg-violet-600 border-violet-400 text-white shadow-[0_0_20px_rgba(167,139,250,0.7)]';
+            } else if (node.isDoubleRed) {
+              bgClass = 'bg-gradient-to-br from-red-500 to-red-700 border-amber-400 text-white shadow-[0_0_25px_rgba(251,191,36,0.8)] border-4 animate-pulse';
+            } else if (node.isNew) {
               bgClass = 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.6)]';
             } else if (node.isUnbalanced) {
               bgClass = 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)]';
@@ -167,6 +177,10 @@ export default function GraphTreeRenderer({
               bgClass = 'bg-sky-600 border-sky-400 text-white shadow-[0_0_15px_rgba(56,189,248,0.5)]';
             } else if (node.isActivePath) {
               bgClass = 'bg-sky-600 border-sky-400 text-white shadow-[0_0_15px_rgba(56,189,248,0.5)]';
+            } else if (node.color === 'RED') {
+              bgClass = 'bg-gradient-to-br from-red-500 to-red-700 border-red-400 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]';
+            } else if (node.color === 'BLACK') {
+              bgClass = 'bg-gradient-to-br from-slate-900 to-slate-950 border-slate-700 text-slate-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]';
             } else if (node.isVisited) {
               bgClass = 'bg-indigo-950/60 border-indigo-900 text-indigo-400/80';
             }
@@ -198,7 +212,13 @@ export default function GraphTreeRenderer({
               >
                 {node.val !== undefined ? String(node.val) : ''}
                 {node.balanceFactor !== undefined && (
-                  <span className="absolute -top-3 -right-3 text-[9px] bg-slate-800 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/50 font-sans font-extrabold shadow-[0_0_8px_rgba(34,211,238,0.3)]">
+                  <span className={`absolute -top-3 -right-3 text-[9px] px-1.5 py-0.5 rounded-full border font-sans font-extrabold transition-all duration-300 shadow-sm ${
+                    Math.abs(node.balanceFactor) >= 2
+                      ? 'bg-red-950/90 text-rose-400 border-rose-500/50 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                      : Math.abs(node.balanceFactor) === 1
+                      ? 'bg-slate-900/90 text-cyan-400 border-cyan-500/30 shadow-[0_0_8px_rgba(34,211,238,0.2)]'
+                      : 'bg-slate-950/90 text-slate-400 border-slate-700/30'
+                  }`}>
                     BF:{node.balanceFactor}
                   </span>
                 )}

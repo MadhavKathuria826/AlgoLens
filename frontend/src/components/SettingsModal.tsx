@@ -48,6 +48,34 @@ export default function SettingsModal() {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar text-text-body">
                 
+                {/* UI Theme */}
+                <section>
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">UI Theme</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {(['void', 'slate', 'obsidian'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => updateSettings({ uiMode: mode })}
+                        className={`p-4 rounded-xl border text-left transition-all ${settings.uiMode === mode ? 'border-brand-teal bg-brand-teal/10' : 'border-white/10 hover:border-white/20 hover:bg-white/5'}`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="font-medium capitalize text-text-heading">{mode}</div>
+                          {/* Swatches */}
+                          <div className="flex items-center gap-1">
+                            <span className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: mode === 'void' ? '#000d10' : mode === 'slate' ? '#0a0e12' : '#060608' }} />
+                            <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: mode === 'void' ? '#bc7155' : mode === 'slate' ? '#4ca6b8' : '#d4833b' }} />
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {mode === 'void' && 'Deep space base with Constellation Void accents.'}
+                          {mode === 'slate' && 'Cooler blue-gray base with desaturated cyan/steel accents.'}
+                          {mode === 'obsidian' && 'True near-black base with warmer amber/bronze accents.'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
                 {/* Graphics Quality */}
                 <section>
                   <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Graphics Quality</h3>

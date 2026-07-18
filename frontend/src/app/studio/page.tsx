@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import CodeEditor from '@/components/CodeEditor';
 import VisualizationCanvas from '@/components/VisualizationCanvas';
@@ -16,9 +16,34 @@ import TestCaseModal from '@/components/TestCaseModal';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
+
 function StudioInner({ onBack }: { onBack?: () => void }) {
-  const [code, setCode] = useState(`def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n\nresult = factorial(3)`);
+  const [code, setCode] = useState(
+    "# Welcome to AlgoLens Studio\n" +
+    "# Write or paste your own Python code here, then click Run to visualize!\n\n" +
+    "def bubble_sort(arr):\n" +
+    "    n = len(arr)\n" +
+    "    for i in range(n):\n" +
+    "        for j in range(0, n - i - 1):\n" +
+    "            if arr[j] > arr[j + 1]:\n" +
+    "                # Swap elements\n" +
+    "                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n" +
+    "    return arr\n\n" +
+    "arr = [64, 34, 25, 12, 22]\n" +
+    "bubble_sort(arr)\n"
+  );
   const [steps, setSteps] = useState<any[]>([]);
+
+  // Expose global callback for Puppeteer testing to inject custom code
+  useEffect(() => {
+    (window as any).setStudioCode = (newCode: string) => {
+      setCode(newCode);
+    };
+    return () => {
+      delete (window as any).setStudioCode;
+    };
+  }, []);
+
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -268,7 +293,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
                 onBack();
               }
             }}
-            className="text-xl font-bold tracking-tight text-brand-teal"
+            className="text-xl font-bold tracking-tight text-[#00e5ff]"
           >
             AlgoLens
           </Link>
@@ -286,9 +311,12 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
         {/* Top Controls (not in navbar) */}
         <div className="panel-surface py-3 px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
+            {/* EXTENSION POINT: Reintroduce Examples / Preset Selector dropdown here if needed in the future */}
+
             <button 
               onClick={handleRun}
               disabled={isLoading}
+              data-testid="run-button"
               className="btn-primary gap-2"
             >
               {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <Play className="w-5 h-5" />}
@@ -321,6 +349,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
                 
                 <button 
                   onClick={() => { setIsPlaying(false); setCurrentStepIdx(p => Math.min(steps.length - 1, p + 1)); }}
+                  data-testid="next-button"
                   className="btn-icon bg-bg-app border border-white/5 hover:border-brand-teal"
                   title="Next Step"
                 >
@@ -438,7 +467,7 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
 
   if (isMobile === null) {
     return (
-      <div className="w-screen h-screen bg-[#000d10] flex items-center justify-center text-white select-none">
+      <div className="w-screen h-screen bg-[var(--color-bg-app)] flex items-center justify-center text-white select-none">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-[#ffa116]" />
           <span className="text-xs font-mono text-[#8e8e95] tracking-[2px] uppercase">INDEXING INTERNALS...</span>
@@ -449,7 +478,7 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
 
   if (isMobile) {
     return (
-      <div className="w-screen h-screen bg-[#000d10] flex flex-col items-center justify-center p-6 text-center text-[#8e8e95] select-none">
+      <div className="w-screen h-screen bg-[var(--color-bg-app)] flex flex-col items-center justify-center p-6 text-center text-[#8e8e95] select-none">
         <div className="text-white text-2xl font-bold mb-4 tracking-tight">
           Desktop experience only
         </div>
@@ -458,7 +487,7 @@ export default function Studio({ onBack }: { onBack?: () => void }) {
         </p>
         <button
           onClick={onBack}
-          className="px-6 py-2.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[#000d10] transition-colors"
+          className="px-6 py-2.5 border border-white text-white font-bold rounded-[1000px] hover:bg-white hover:text-[var(--color-bg-app)] transition-colors"
         >
           Go Back
         </button>
