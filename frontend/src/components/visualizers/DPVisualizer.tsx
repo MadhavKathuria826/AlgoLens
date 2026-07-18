@@ -97,7 +97,7 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
     return (
       <div className="flex flex-col items-center gap-6 my-8 w-full relative">
         <div className="absolute top-0 right-4 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-          BUILD-20
+          BUILD-21
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
@@ -155,7 +155,7 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
     return (
       <div className="flex flex-col items-center gap-6 my-8 w-full relative">
         <div className="absolute top-0 right-4 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-          BUILD-20
+          BUILD-21
         </div>
         <div className="flex flex-col items-center gap-1">
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
@@ -213,7 +213,7 @@ function MemoizationVisualizer({ data, steps, currentStepIdx }: { data: any, ste
   return (
     <div className="flex flex-col items-center gap-6 my-8 w-full max-w-lg relative">
       <div className="absolute top-0 right-0 text-[9px] font-mono text-slate-600 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-none z-30">
-        BUILD-20
+        BUILD-21
       </div>
       <div className="flex flex-col items-center gap-1">
         <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">Memoization Cache</div>

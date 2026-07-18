@@ -435,7 +435,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
         </div>
 
         {/* Bottom: Timeline */}
-        <div className="h-32 panel-surface !p-0 flex flex-col overflow-hidden shrink-0">
+        <div className="h-32 panel-surface !p-0 flex flex-col overflow-hidden shrink-0 w-full min-w-0">
           <Timeline 
             steps={steps} 
             currentIndex={currentStepIdx} 

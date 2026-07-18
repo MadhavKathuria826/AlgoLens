@@ -258,7 +258,8 @@ class Tracer:
             if should_append and self.steps:
                 prev_step = self.steps[-1]
                 
-                is_identical = (prev_step.locals == current_locals and 
+                is_identical = (prev_step.line_number == lineno and 
+                                prev_step.locals == current_locals and 
                                 prev_step.heap == current_heap and 
                                 prev_step.visualizations == visualizations)
 
