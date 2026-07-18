@@ -23,6 +23,22 @@ int fib(int n) {
 }
 """
 
+dp_memo_conventional_code = """
+#include <unordered_map>
+std::unordered_map<int, int> memo;
+int fib_conv(int n) {
+    if (memo.count(n)) {
+        return memo[n];
+    }
+    if (n <= 1) {
+        return n;
+    }
+    int result = fib_conv(n - 1) + fib_conv(n - 2);
+    memo[n] = result;
+    return result;
+}
+"""
+
 tree_code = """
 struct TreeNode {
     int val;
@@ -53,6 +69,13 @@ def test_all():
     assert memo_res["is_memoization"] == True
     assert memo_res["cache_var_name"] == "memo"
     assert len(memo_res["recurrence_relations"]) > 0
+
+    print("\n=== DP MEMOIZATION (CONVENTIONAL) CLASSIFICATION ===")
+    memo_conv_res = classify_memoization(dp_memo_conventional_code)
+    print(memo_conv_res)
+    assert memo_conv_res["is_memoization"] == True
+    assert memo_conv_res["cache_var_name"] == "memo"
+    assert len(memo_conv_res["recurrence_relations"]) > 0
 
     print("\n=== TREE CLASSIFICATION ===")
     tree_res = classify_tree(tree_code)
