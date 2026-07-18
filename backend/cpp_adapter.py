@@ -174,12 +174,52 @@ void serialize_output(const std::vector<int>& val) {
     }
     std::cout << "]" << std::endl;
 }
+void serialize_output(const std::vector<std::string>& val) {
+    std::cout << "[";
+    for (size_t i = 0; i < val.size(); ++i) {
+        std::cout << "\\"" << val[i] << "\\"" << (i + 1 < val.size() ? ", " : "");
+    }
+    std::cout << "]" << std::endl;
+}
 void serialize_output(ListNode* head) {
     std::cout << "[";
     ListNode* curr = head;
     while (curr) {
         std::cout << curr->val << (curr->next ? ", " : "");
         curr = curr->next;
+    }
+    std::cout << "]" << std::endl;
+}
+void serialize_output(TreeNode* root) {
+    if (!root) {
+        std::cout << "[]" << std::endl;
+        return;
+    }
+    std::vector<std::string> res;
+    std::queue<TreeNode*> q;
+    q.push(root);
+    while (!q.empty()) {
+        TreeNode* curr = q.front();
+        q.pop();
+        if (curr) {
+            res.push_back(std::to_string(curr->val));
+            q.push(curr->left);
+            q.push(curr->right);
+        } else {
+            res.push_back("null");
+        }
+    }
+    while (!res.empty() && res.back() == "null") {
+        res.pop_back();
+    }
+    std::cout << "[";
+    for (size_t i = 0; i < res.size(); ++i) {
+        if (res[i] == "null") {
+            std::cout << "null";
+        } else {
+            std::cout << res[i];
+        }
+        if (i + 1 < res.size()) std::cout << ", ";
     }
     std::cout << "]" << std::endl;
 }

@@ -66,10 +66,36 @@ def test_list_input():
     assert "serialize_output(_res);" in driver
     assert driver.count("{") == driver.count("}")
 
+def test_serialize_overloads_completeness():
+    print("\n=== Case 4: Overload Completeness Test ===")
+    entry_info = {
+        "name": "dummy",
+        "return_type": "int",
+        "params": [],
+        "is_class": False
+    }
+    driver = build_driver_code(entry_info, "")
+    
+    required_overloads = [
+        "void serialize_output(int",
+        "void serialize_output(double",
+        "void serialize_output(bool",
+        "void serialize_output(const std::string&",
+        "void serialize_output(const std::vector<int>&",
+        "void serialize_output(const std::vector<std::string>&",
+        "void serialize_output(ListNode*",
+        "void serialize_output(TreeNode*"
+    ]
+    
+    for overload in required_overloads:
+        assert overload in driver, f"Missing required overload: {overload}"
+    print("All required overloads are present in the helper block!")
+
 def run_tests():
     test_plain_type()
     test_tree_input()
     test_list_input()
+    test_serialize_overloads_completeness()
     print("\nALL ADAPTER DRIVER GENERATION TESTS PASSED SUCCESSFULLY!")
 
 if __name__ == "__main__":
