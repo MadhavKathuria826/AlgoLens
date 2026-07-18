@@ -254,26 +254,27 @@ function MemoizationVisualizer({ data, steps, currentStepIdx }: { data: any, ste
                   animate={
                     isHit 
                       ? { 
-                          scale: [1, 1.05, 1],
-                          borderColor: ["rgba(255,255,255,0.05)", "#818cf8", "rgba(255,255,255,0.05)"],
-                          backgroundColor: ["rgba(255,255,255,0.01)", "rgba(129,140,248,0.15)", "rgba(255,255,255,0.01)"]
+                          scale: [1, 1.08, 0.97, 1.03, 1],
+                          borderColor: ["rgba(255,255,255,0.05)", "#fbbf24", "rgba(255,255,255,0.05)"],
+                          backgroundColor: ["rgba(255,255,255,0.01)", "rgba(245,158,11,0.25)", "rgba(255,255,255,0.01)"],
+                          boxShadow: ["0 0 0 rgba(245,158,11,0)", "0 0 25px rgba(245,158,11,0.6)", "0 0 0 rgba(245,158,11,0)"]
                         }
-                      : { opacity: 1, x: 0 }
+                      : { opacity: 1, scale: 1, x: 0 }
                   }
                   transition={isHit ? { duration: 0.8 } : { duration: 0.3 }}
                   className={`flex items-center justify-between p-3 rounded-xl border bg-white/[0.01] ${
                     isHit 
-                      ? 'border-indigo-400 bg-indigo-500/10 shadow-[0_0_15px_rgba(129,140,248,0.2)]'
+                      ? 'border-amber-400 bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.5)] z-20'
                       : 'border-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-slate-400 font-mono text-sm">key:</span>
-                    <span className="text-slate-100 font-mono font-bold bg-white/5 px-2 py-0.5 rounded text-sm">{entry.key}</span>
+                    <span className={`font-mono text-sm px-2 py-0.5 rounded ${isHit ? 'text-amber-300 font-bold bg-amber-500/10' : 'text-slate-100 bg-white/5'}`}>{entry.key}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-slate-400 font-mono text-sm">val:</span>
-                    <span className="text-emerald-400 font-mono font-bold text-lg">{String(entry.value)}</span>
+                    <span className={`font-mono text-lg ${isHit ? 'text-amber-400 font-extrabold' : 'text-emerald-400 font-bold'}`}>{String(entry.value)}</span>
                   </div>
                 </motion.div>
               );
