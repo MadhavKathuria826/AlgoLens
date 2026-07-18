@@ -6,9 +6,10 @@ interface DPVisualizerProps {
   currentStepIdx: number;
   locals: any;
   currentLineCode?: string;
+  recurrenceRelations?: string[];
 }
 
-export default function DPVisualizer({ data, steps, currentStepIdx, locals, currentLineCode }: DPVisualizerProps) {
+export default function DPVisualizer({ data, steps, currentStepIdx, locals, currentLineCode, recurrenceRelations = [] }: DPVisualizerProps) {
   const isTabulation = data.dimensions !== undefined || data.table_shape !== undefined;
   
   if (isTabulation) {
@@ -17,6 +18,7 @@ export default function DPVisualizer({ data, steps, currentStepIdx, locals, curr
         data={data}
         steps={steps}
         currentStepIdx={currentStepIdx}
+        recurrenceRelations={recurrenceRelations}
       />
     );
   } else {
@@ -25,12 +27,13 @@ export default function DPVisualizer({ data, steps, currentStepIdx, locals, curr
         data={data}
         steps={steps}
         currentStepIdx={currentStepIdx}
+        recurrenceRelations={recurrenceRelations}
       />
     );
   }
 }
 
-function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, steps: any[], currentStepIdx: number }) {
+function TabulationVisualizer({ data, steps, currentStepIdx, recurrenceRelations = [] }: { data: any, steps: any[], currentStepIdx: number, recurrenceRelations?: string[] }) {
   const name = data.name;
   const dimensions = data.dimensions || 1;
   const tableShape = data.table_shape || [10];
@@ -103,6 +106,21 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
           <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest font-semibold">Tabulation 1D</div>
         </div>
+
+        {recurrenceRelations && recurrenceRelations.length > 0 && (
+          <div className="w-full max-w-lg bg-bg-surface border border-white/5 rounded-xl p-4 flex flex-col gap-2 shadow-sm font-sans">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-semibold">Recurrence Relation</div>
+            <div className="flex flex-col gap-1.5 font-mono text-xs text-amber-400 bg-black/20 p-3 rounded-lg border border-white/5">
+              {recurrenceRelations.map((rel, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-slate-500 select-none">•</span>
+                  <span>{rel}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-start gap-3 flex-wrap justify-center max-w-4xl p-4 bg-bg-surface/50 border border-white/5 rounded-2xl">
           {cells}
         </div>
@@ -161,6 +179,21 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
           <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">{name}</div>
           <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest font-semibold">Tabulation 2D Matrix</div>
         </div>
+
+        {recurrenceRelations && recurrenceRelations.length > 0 && (
+          <div className="w-full max-w-lg bg-bg-surface border border-white/5 rounded-xl p-4 flex flex-col gap-2 shadow-sm font-sans">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-semibold">Recurrence Relation</div>
+            <div className="flex flex-col gap-1.5 font-mono text-xs text-amber-400 bg-black/20 p-3 rounded-lg border border-white/5">
+              {recurrenceRelations.map((rel, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-slate-500 select-none">•</span>
+                  <span>{rel}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 p-6 bg-bg-surface/50 border border-white/5 rounded-2xl overflow-auto max-w-full">
           <div className="flex items-center gap-2">
             <div className="w-8" />
@@ -177,7 +210,7 @@ function TabulationVisualizer({ data, steps, currentStepIdx }: { data: any, step
   }
 }
 
-function MemoizationVisualizer({ data, steps, currentStepIdx }: { data: any, steps: any[], currentStepIdx: number }) {
+function MemoizationVisualizer({ data, steps, currentStepIdx, recurrenceRelations = [] }: { data: any, steps: any[], currentStepIdx: number, recurrenceRelations?: string[] }) {
   const cacheEntries: { key: string, value: any }[] = [];
   const cacheMap = new Map<string, number>();
   const activeCallStack: string[] = [];
@@ -219,6 +252,20 @@ function MemoizationVisualizer({ data, steps, currentStepIdx }: { data: any, ste
         <div className="text-indigo-400 font-mono text-xl tracking-wider uppercase">Memoization Cache</div>
         <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest font-semibold">Recursive Event Log</div>
       </div>
+
+      {recurrenceRelations && recurrenceRelations.length > 0 && (
+        <div className="w-full bg-bg-surface border border-white/5 rounded-xl p-4 flex flex-col gap-2 shadow-sm font-sans text-left align-start">
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-semibold">Recurrence Relation (Recursive)</div>
+          <div className="flex flex-col gap-1.5 font-mono text-xs text-amber-400 bg-black/20 p-3 rounded-lg border border-white/5">
+            {recurrenceRelations.map((rel, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="text-slate-500 select-none">•</span>
+                <span>{rel}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       <div className="w-full bg-slate-950/40 border border-white/5 rounded-xl p-4 flex flex-col gap-2">
         <div className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-semibold">Active Recursion Path</div>

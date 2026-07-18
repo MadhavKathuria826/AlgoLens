@@ -26,3 +26,4 @@ class CodeExecutionResponse(BaseModel):
     needs_disambiguation: bool = False
     candidates: Optional[List[str]] = None
     params: Optional[List[str]] = None
+    recurrence_relations: Optional[List[str]] = None

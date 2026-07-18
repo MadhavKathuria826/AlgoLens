@@ -131,7 +131,7 @@ def classify_tabulation(code: str):
     try:
         tree = ast.parse(code)
     except Exception:
-        return {"is_tabulation": False, "dimensions": 1, "confidence": 0.0, "table_var_name": ""}
+        return {"is_tabulation": False, "dimensions": 1, "confidence": 0.0, "table_var_name": "", "recurrence_relations": []}
         
     class TabulationVisitor(ast.NodeVisitor):
         def __init__(self):
@@ -140,6 +140,7 @@ def classify_tabulation(code: str):
             self.dimensions = 1
             self.confidence = 0.0
             self.table_var_name = ""
+            self.recurrence_lines = []
             
         def visit_For(self, node):
             names = extract_names(node.target)
@@ -209,6 +210,12 @@ def classify_tabulation(code: str):
                             self.table_var_name = base_name
                             self.dimensions = min(2, len(lhs_indices))
                             self.confidence = 1.0
+                            try:
+                                recurrence_str = ast.unparse(target).strip() + " = " + ast.unparse(value).strip()
+                                if recurrence_str not in self.recurrence_lines:
+                                    self.recurrence_lines.append(recurrence_str)
+                            except Exception:
+                                pass
                             return
 
     visitor = TabulationVisitor()
@@ -217,14 +224,15 @@ def classify_tabulation(code: str):
         "is_tabulation": visitor.found,
         "dimensions": visitor.dimensions,
         "confidence": visitor.confidence,
-        "table_var_name": visitor.table_var_name
+        "table_var_name": visitor.table_var_name,
+        "recurrence_relations": visitor.recurrence_lines
     }
 
 def classify_memoization(code: str):
     try:
         tree = ast.parse(code)
     except Exception:
-        return {"is_memoization": False, "cache_type": "decorator", "confidence": 0.0, "cache_var_name": None}
+        return {"is_memoization": False, "cache_type": "decorator", "confidence": 0.0, "cache_var_name": None, "recurrence_relations": []}
         
     class MemoizationVisitor(ast.NodeVisitor):
         def __init__(self):
@@ -232,12 +240,30 @@ def classify_memoization(code: str):
             self.cache_type = "decorator"
             self.confidence = 0.0
             self.cache_var_name = None
+            self.recurrence_lines = []
             
         def visit_FunctionDef(self, node):
+            func_name = node.name
+            
+            # g. Extract recurrence lines (return statements with recursive calls)
+            for child in ast.walk(node):
+                if isinstance(child, ast.Return) and child.value:
+                    has_rec = False
+                    for sub in ast.walk(child.value):
+                        if isinstance(sub, ast.Call) and is_recursive_call(sub, func_name):
+                            has_rec = True
+                            break
+                    if has_rec:
+                        try:
+                            rec_str = ast.unparse(child).strip()
+                            if rec_str not in self.recurrence_lines:
+                                self.recurrence_lines.append(rec_str)
+                        except Exception:
+                            pass
+
             if self.found:
                 return
                 
-            func_name = node.name
             param_names = {arg.arg for arg in node.args.args if arg.arg not in ('self', 'cls')}
             
             # a. Check recursion
@@ -319,5 +345,6 @@ def classify_memoization(code: str):
         "is_memoization": visitor.found,
         "cache_type": visitor.cache_type,
         "confidence": visitor.confidence,
-        "cache_var_name": visitor.cache_var_name
+        "cache_var_name": visitor.cache_var_name,
+        "recurrence_relations": visitor.recurrence_lines
     }

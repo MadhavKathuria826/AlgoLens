@@ -13,7 +13,7 @@ import HeapVisualizer from './visualizers/HeapVisualizer';
 import Viewport from './Viewport';
 import DPVisualizer from './visualizers/DPVisualizer';
 
-export default function VisualizationCanvas({ step, steps = [], currentStepIdx = 0, code, isFullscreen, onToggleFullscreen }: any) {
+export default function VisualizationCanvas({ step, steps = [], currentStepIdx = 0, code, isFullscreen, onToggleFullscreen, recurrenceRelations = [] }: any) {
   if (!step || !step.visualizations || step.visualizations.length === 0) {
     return <div className="flex-1 flex items-center justify-center text-slate-500 font-light text-lg">Run code to see the algorithm</div>;
   }
@@ -85,6 +85,7 @@ export default function VisualizationCanvas({ step, steps = [], currentStepIdx =
                     currentStepIdx={currentStepIdx}
                     locals={activeLocals}
                     currentLineCode={currentLineCode}
+                    recurrenceRelations={recurrenceRelations}
                   />
                 );
               case 'Array':

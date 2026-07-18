@@ -33,6 +33,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     "bubble_sort(arr)\n"
   );
   const [steps, setSteps] = useState<any[]>([]);
+  const [recurrenceRelations, setRecurrenceRelations] = useState<string[]>([]);
 
   // Expose global callback for Puppeteer testing to inject custom code
   useEffect(() => {
@@ -159,6 +160,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
         }
       } else if (res.data.steps) {
         setIsModalOpen(false);
+        setRecurrenceRelations(res.data.recurrence_relations || []);
         const codeLines = code.split('\n');
         
         const buildSemanticInputs = (s: any) => {
@@ -379,7 +381,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
             )}
 
             <button 
-              onClick={() => { setSteps([]); setCurrentStepIdx(0); setIsPlaying(false); }}
+              onClick={() => { setSteps([]); setRecurrenceRelations([]); setCurrentStepIdx(0); setIsPlaying(false); }}
               className="btn-ghost gap-2 text-brand-coral hover:bg-brand-coral/10 ml-4"
             >
               <RotateCcw className="w-4 h-4" /> Clear
@@ -421,6 +423,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
                 code={code} 
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+                recurrenceRelations={recurrenceRelations}
               />
             </div>
           </div>

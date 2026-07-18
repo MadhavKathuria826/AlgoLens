@@ -63,9 +63,21 @@ def execute_code(request: CodeExecutionRequest):
     from rbt_classifier import classify_rbt
     from rbt_tracer import run_rbt_tracer
     from dp_tracer import run_dp_tracer
+    from dp_classifier import classify_tabulation, classify_memoization
     try:
         avl_res = classify_avl(request.code)
         rbt_res = classify_rbt(request.code)
+        recurrence_relations = []
+        try:
+            tab_res = classify_tabulation(request.code)
+            memo_res = classify_memoization(request.code)
+            if tab_res.get("recurrence_relations"):
+                recurrence_relations.extend(tab_res["recurrence_relations"])
+            if memo_res.get("recurrence_relations"):
+                recurrence_relations.extend(memo_res["recurrence_relations"])
+        except Exception:
+            pass
+
         if avl_res["is_avl"]:
             steps = run_avl_tracer(request.code)
         elif rbt_res["is_rbt"]:
@@ -75,7 +87,7 @@ def execute_code(request: CodeExecutionRequest):
             if steps is None:
                 tracer = Tracer()
                 steps = tracer.run_code(request.code, request.max_recursion_depth)
-        return CodeExecutionResponse(steps=steps)
+        return CodeExecutionResponse(steps=steps, recurrence_relations=recurrence_relations)
     except Exception as e:
         return CodeExecutionResponse(steps=[], error=str(e))
 
