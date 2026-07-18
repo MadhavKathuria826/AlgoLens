@@ -245,11 +245,11 @@ def classify_memoization(code: str):
         def visit_FunctionDef(self, node):
             func_name = node.name
             
-            # g. Extract recurrence lines (return statements with recursive calls)
+            # g. Extract recurrence lines (statements with recursive calls)
             for child in ast.walk(node):
-                if isinstance(child, ast.Return) and child.value:
+                if isinstance(child, (ast.Return, ast.Assign, ast.AnnAssign)):
                     has_rec = False
-                    for sub in ast.walk(child.value):
+                    for sub in ast.walk(child):
                         if isinstance(sub, ast.Call) and is_recursive_call(sub, func_name):
                             has_rec = True
                             break
