@@ -452,10 +452,19 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
                                 "name": child.spelling,
                                 "type": child.type.spelling
                             })
+                    
+                    is_class = cursor.kind == CursorKind.CXX_METHOD
+                    class_name = None
+                    if is_class and cursor.semantic_parent:
+                        if cursor.semantic_parent.kind in (CursorKind.STRUCT_DECL, CursorKind.CLASS_DECL):
+                            class_name = cursor.semantic_parent.spelling
+                            
                     candidates.append({
                         "name": func_name,
                         "return_type": cursor.result_type.spelling,
-                        "params": params
+                        "params": params,
+                        "is_class": is_class,
+                        "class_name": class_name
                     })
         for child in cursor.get_children():
             visit(child)
@@ -472,6 +481,8 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
                     "name": cand["name"],
                     "return_type": cand["return_type"],
                     "params": cand["params"],
+                    "is_class": cand["is_class"],
+                    "class_name": cand["class_name"],
                     "candidates": candidates,
                     "is_ambiguous": False
                 }
@@ -489,6 +500,8 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
         "name": candidates[0]["name"],
         "return_type": candidates[0]["return_type"],
         "params": candidates[0]["params"],
+        "is_class": candidates[0]["is_class"],
+        "class_name": candidates[0]["class_name"],
         "candidates": candidates,
         "is_ambiguous": False
     }
