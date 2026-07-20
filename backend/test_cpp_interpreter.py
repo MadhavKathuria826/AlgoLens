@@ -4,9 +4,9 @@ import tempfile
 import subprocess
 import shutil
 from typing import Dict, Any, Tuple
-from cpp_interpreter import CPPInterpreter, Environment
+from cpp_interpreter import CPPInterpreter, Environment, ExecutionLimitError
 
-# --- Fixtures Definitions ---
+# --- Full Fixture Set ---
 
 FIXTURES = [
     {
@@ -26,7 +26,7 @@ int test_neg_div() {
         "expected_locals": {"a": -7, "b": 2, "res": -3, "mod": -1}
     },
     {
-        "name": "Fixture 2: Struct Passed by Value (Copy mutation check)",
+        "name": "Fixture 2: Struct Passed by Value (Top-level copy mutation check)",
         "code": """
 struct Point {
     int x;
@@ -77,7 +77,7 @@ int test_pointer() {
         "expected_heap": {"0x1000": {"val": 500, "next": "0x0000"}}
     },
     {
-        "name": "Fixture 4: Fixed-Width Integer Overflow Wrapping",
+        "name": "Fixture 4: Fixed-Width 32-bit Signed Integer Overflow Wrapping",
         "code": """
 int test_overflow() {
     int max_int = 2147483647;
@@ -126,17 +126,127 @@ int sum_vector() {
         "args": [],
         "expected_return": 60,
         "expected_locals": {"nums": [10, 20, 30], "total": 60}
+    },
+    {
+        "name": "Fixture 7: Unsigned Integer Underflow/Wraparound",
+        "code": """
+unsigned int test_unsigned_wrap() {
+    unsigned int u = 0;
+    unsigned int wrapped = u - 1;
+    return wrapped;
+}
+""",
+        "entry_function": "test_unsigned_wrap",
+        "args": [],
+        "expected_return": 4294967295,
+        "expected_locals": {"u": 0, "wrapped": 4294967295}
+    },
+    {
+        "name": "Fixture 8: Signed short and char Overflow Wrapping",
+        "code": """
+int test_short_char_overflow() {
+    short s = 32767;
+    short s_wrap = s + 1;
+    char c = 127;
+    char c_wrap = c + 1;
+    return s_wrap + c_wrap;
+}
+""",
+        "entry_function": "test_short_char_overflow",
+        "args": [],
+        "expected_return": -32896,
+        "expected_locals": {"s": 32767, "s_wrap": -32768, "c": 127, "c_wrap": -128}
+    },
+    {
+        "name": "Fixture 9: Struct Passed by Value with Nested Struct Field (Recursive deep-copy)",
+        "code": """
+struct Address {
+    int zip;
+};
+
+struct User {
+    int id;
+    Address addr;
+};
+
+void mutate_user(User u) {
+    u.id = 999;
+    u.addr.zip = 99999;
+}
+
+int test_nested_struct() {
+    User u;
+    u.id = 1;
+    u.addr.zip = 12345;
+    mutate_user(u);
+    return u.id + u.addr.zip;
+}
+""",
+        "entry_function": "test_nested_struct",
+        "args": [],
+        "expected_return": 12346,
+        "expected_locals": {"u": {"id": 1, "addr": {"zip": 12345}}}
+    },
+    {
+        "name": "Safety Cap Fixture 10: Infinite Loop Execution Guard",
+        "code": """
+int test_infinite_loop() {
+    int x = 0;
+    while (true) {
+        x = x + 1;
+    }
+    return x;
+}
+""",
+        "entry_function": "test_infinite_loop",
+        "args": [],
+        "expect_cap_error": True,
+        "expected_error_keyword": "loop iterations"
+    },
+    {
+        "name": "Safety Cap Fixture 11: Infinite Recursion Depth Guard",
+        "code": """
+int recurse(int n) {
+    return recurse(n + 1);
+}
+
+int test_infinite_recursion() {
+    return recurse(1);
+}
+""",
+        "entry_function": "test_infinite_recursion",
+        "args": [],
+        "expect_cap_error": True,
+        "expected_error_keyword": "recursion depth"
     }
 ]
 
 # --- Helper to Compile and Run Native C++ via g++ / clang++ if available ---
 
-def run_native_cpp(code: str, entry_func: str) -> Tuple[bool, Any, str]:
-    """Compiles C++ code with a generated main() wrapper using g++ if present on host."""
-    compiler = shutil.which("g++") or shutil.which("clang++")
-    if not compiler:
-        return False, None, "g++ / clang++ not found on PATH"
+def find_compiler() -> Tuple[Optional[str], str]:
+    """Finds g++ or clang++ compiler on PATH or common installation directories."""
+    # Direct check for installed toolchain
+    known_path = r"C:\Users\hp\llvm-mingw\bin\g++.exe"
+    if os.path.exists(known_path):
+        return known_path, "g++"
 
+    compiler = shutil.which("g++") or shutil.which("clang++")
+    if compiler:
+        return compiler, "g++"
+
+    search_paths = [
+        r"C:\Program Files\LLVM\bin\clang++.exe",
+        r"C:\msys64\ucrt64\bin\g++.exe",
+        r"C:\msys64\mingw64\bin\g++.exe",
+        r"C:\MinGW\bin\g++.exe",
+    ]
+    for p in search_paths:
+        if os.path.exists(p):
+            return p, "g++"
+    return None, ""
+
+def run_native_cpp(code: str, entry_func: str, compiler_path: str) -> Tuple[bool, Any, str]:
+    """Compiles C++ code with a generated main() wrapper using real g++ binary."""
     wrapper_code = f"""
 #include <iostream>
 #include <vector>
@@ -156,23 +266,26 @@ int main() {{
         with open(src_path, "w") as f:
             f.write(wrapper_code)
 
-        comp = subprocess.run([compiler, src_path, "-o", exe_path], capture_output=True, text=True)
-        if comp.returncode != 0:
-            return False, None, f"Compilation failed: {comp.stderr}"
+        try:
+            comp = subprocess.run([compiler_path, src_path, "-o", exe_path], capture_output=True, text=True)
+            if comp.returncode != 0:
+                return False, None, f"Compilation failed: {comp.stderr}"
 
-        run_res = subprocess.run([exe_path], capture_output=True, text=True)
-        if run_res.returncode != 0:
-            return False, None, f"Execution failed: {run_res.stderr}"
+            run_res = subprocess.run([exe_path], capture_output=True, text=True)
+            if run_res.returncode != 0:
+                return False, None, f"Execution failed: {run_res.stderr}"
 
-        stdout = run_res.stdout
-        for line in stdout.splitlines():
-            if line.startswith("RETURN:"):
-                val_str = line.split("RETURN:")[1].strip()
-                try:
-                    return True, int(val_str), stdout
-                except ValueError:
-                    return True, val_str, stdout
-        return True, stdout.strip(), stdout
+            stdout = run_res.stdout
+            for line in stdout.splitlines():
+                if line.startswith("RETURN:"):
+                    val_str = line.split("RETURN:")[1].strip()
+                    try:
+                        return True, int(val_str), stdout
+                    except ValueError:
+                        return True, val_str, stdout
+            return True, stdout.strip(), stdout
+        except Exception as err:
+            return False, None, f"OS Execution Restriction: {err}"
 
 # --- Main Differential Test Runner ---
 
@@ -181,8 +294,14 @@ def run_differential_tests():
     print("      CPP_INTERPRETER DIFFERENTIAL TEST HARNESS REPORT")
     print("=" * 80)
 
-    compiler = shutil.which("g++") or shutil.which("clang++")
-    print(f"Native Compiler Status: {'FOUND (' + compiler + ')' if compiler else 'NOT FOUND (Using standard C++ ground truth assertion)'}\n")
+    compiler_path, comp_name = find_compiler()
+    if compiler_path:
+        comp_ver = subprocess.run([compiler_path, "--version"], capture_output=True, text=True).stdout.splitlines()[0]
+        print(f"Native Compiler Status: REAL NATIVE BINARY COMPILER FOUND ({comp_ver})")
+        print(f"Compiler Path: {compiler_path}\n")
+    else:
+        print("Native Compiler Status: NOT FOUND ON PATH OR COMMON DIRS")
+        print("Note: Fixtures validated against standard C++ g++ language specification expected states.\n")
 
     total_fixtures = len(FIXTURES)
     passed_fixtures = 0
@@ -191,7 +310,31 @@ def run_differential_tests():
         print(f"[{idx}/{total_fixtures}] {fix['name']}")
         print("-" * 60)
 
-        # 1. Run Interpreter
+        # 1. Handle Safety Cap Fixtures
+        if fix.get("expect_cap_error"):
+            interpreter = CPPInterpreter(max_recursion_depth=50, max_loop_iterations=100)
+            passed = False
+            error_msg = ""
+            try:
+                interpreter.interpret(fix["code"], fix["entry_function"], fix["args"])
+            except ExecutionLimitError as ele:
+                if fix["expected_error_keyword"] in str(ele):
+                    passed = True
+                    error_msg = f"Safely stopped by execution cap: '{ele}'"
+                else:
+                    error_msg = f"Unexpected ExecutionLimitError message: {ele}"
+            except Exception as e:
+                error_msg = f"Unexpected Exception: {e}"
+
+            print(f"Status: {'[PASS]' if passed else '[FAIL]'}")
+            print(f"  - Safety Cap Guard : ACTIVE ({fix['expected_error_keyword']})")
+            print(f"  - Execution Result : {error_msg}")
+            print("\n")
+            if passed:
+                passed_fixtures += 1
+            continue
+
+        # 2. Standard Fixtures Execution
         interpreter = CPPInterpreter()
         interp_error = None
         steps = []
@@ -201,11 +344,14 @@ def run_differential_tests():
         except Exception as e:
             interp_error = str(e)
 
-        # 2. Native g++ Execution or Standard Ground Truth
-        native_ok, native_return, native_msg = run_native_cpp(fix["code"], fix["entry_function"])
+        # 3. Native C++ Binary Execution (if compiler available)
+        native_ok, native_return, native_msg = (False, None, "")
+        if compiler_path:
+            native_ok, native_return, native_msg = run_native_cpp(fix["code"], fix["entry_function"], compiler_path)
+
         expected_return = native_return if native_ok else fix["expected_return"]
 
-        # 3. Validation & Assertions
+        # 4. Validation & Assertions
         passed = True
         fail_reasons = []
 
@@ -217,7 +363,6 @@ def run_differential_tests():
                 passed = False
                 fail_reasons.append(f"Return Value Mismatch: actual '{interp_return}' vs expected '{expected_return}'")
 
-            # Validate locals snapshot if defined
             if steps and fix.get("expected_locals"):
                 final_step = steps[-1]
                 final_locals = final_step.locals or {}
@@ -227,7 +372,6 @@ def run_differential_tests():
                         passed = False
                         fail_reasons.append(f"Local Var '{l_key}' Mismatch: actual '{l_act_val}' vs expected '{l_exp_val}'")
 
-            # Validate heap snapshot if defined
             if steps and fix.get("expected_heap"):
                 final_step = steps[-1]
                 final_heap = final_step.heap or {}
@@ -237,11 +381,13 @@ def run_differential_tests():
                         passed = False
                         fail_reasons.append(f"Heap Address '{h_addr}' Mismatch: actual '{h_act_obj}' vs expected '{h_exp_obj}'")
 
-        # 4. Detailed Fixture Output Report
+        # 5. Detailed Fixture Output Report
         print(f"Status: {'[PASS]' if passed else '[FAIL]'}")
         print(f"  - Entry Point      : {fix['entry_function']}()")
         print(f"  - Actual Return    : {interp_return}")
-        print(f"  - Expected Return  : {expected_return}")
+        print(f"  - Expected Return  : {expected_return}" + (" (Verified via real compiled C++ binary)" if native_ok else " (C++ Ground Truth)"))
+        if native_ok:
+            print(f"  - Real C++ Binary stdout: {native_msg.strip()}")
         print(f"  - Total Trace Steps: {len(steps)}")
 
         if steps:

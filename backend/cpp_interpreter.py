@@ -39,16 +39,24 @@ def cpp_int_mod(a: int, b: int) -> int:
     return a - div * b
 
 def wrap_int(val: Any, type_str: str = "int") -> Any:
-    """Wraps fixed-width integers on overflow per 2's complement C++ semantics."""
+    """Wraps fixed-width integers on overflow per C++ semantics (signed 2's complement & unsigned modulo)."""
     if not isinstance(val, int) or isinstance(val, bool):
         return val
     type_s = (type_str or "int").lower()
-    if 'short' in type_s:
-        return (val + 32768) % 65536 - 32768
-    elif 'char' in type_s and 'unsigned' not in type_s:
-        return (val + 128) % 256 - 128
-    elif 'int' in type_s or 'long' in type_s:
-        return (val + 2147483648) % 4294967296 - 2147483648
+    if 'unsigned' in type_s:
+        if 'short' in type_s:
+            return val % 65536
+        elif 'char' in type_s:
+            return val % 256
+        else: # unsigned int / unsigned long
+            return val % 4294967296
+    else:
+        if 'short' in type_s:
+            return (val + 32768) % 65536 - 32768
+        elif 'char' in type_s:
+            return (val + 128) % 256 - 128
+        elif 'int' in type_s or 'long' in type_s:
+            return (val + 2147483648) % 4294967296 - 2147483648
     return val
 
 def is_pointer_type(type_str: str, val: Any = None) -> bool:
@@ -272,8 +280,11 @@ class CPPInterpreter:
                         if child.kind == CursorKind.FIELD_DECL:
                             f_name = child.spelling
                             f_type = child.type.spelling
+                            clean_type = f_type.replace('struct ', '').replace('class ', '').strip()
                             if is_pointer_type(f_type):
                                 fields[f_name] = "0x0000"
+                            elif clean_type in self.env.struct_definitions:
+                                fields[f_name] = copy.deepcopy(self.env.struct_definitions[clean_type])
                             elif 'int' in f_type or 'short' in f_type or 'char' in f_type:
                                 fields[f_name] = 0
                             elif 'float' in f_type or 'double' in f_type:
