@@ -2,11 +2,13 @@ import Editor from '@monaco-editor/react';
 import { useRef, useEffect } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
 
-export default function CodeEditor({ code, onChange, activeLine, onRun }: any) {
+export default function CodeEditor({ code, onChange, activeLine, onRun, language }: any) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const decorationsRef = useRef<any[]>([]);
   const { settings } = useSettings();
+
+  const currentLanguage = language || settings.language || 'python';
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
@@ -75,7 +77,7 @@ export default function CodeEditor({ code, onChange, activeLine, onRun }: any) {
       <style>{`.bg-blue-500\\/20 { background-color: rgba(59, 130, 246, 0.2) !important; border-left: 4px solid #3b82f6 !important; }`}</style>
       <Editor
         height="100%"
-        defaultLanguage="python"
+        language={currentLanguage}
         theme={settings.editorTheme}
         value={code}
         onChange={onChange}

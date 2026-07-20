@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 
 class CodeExecutionRequest(BaseModel):
     code: str
+    language: Optional[str] = "python"
     max_recursion_depth: Optional[int] = 1000
     test_case: Optional[str] = None
     selected_method: Optional[str] = None
