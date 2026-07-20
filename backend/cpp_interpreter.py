@@ -219,8 +219,12 @@ class CPPInterpreter:
 
     def unwrap(self, cursor: Cursor) -> Cursor:
         """Strip implicit Clang wrapper nodes."""
+        wrapper_kinds = {CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR}
+        for name in ('IMPLICIT_CAST_EXPR', 'CXX_FUNCTIONAL_CAST_EXPR', 'CSTYLE_CAST_EXPR'):
+            if hasattr(CursorKind, name):
+                wrapper_kinds.add(getattr(CursorKind, name))
         curr = cursor
-        while curr and curr.kind in (CursorKind.UNEXPOSED_EXPR, CursorKind.IMPLICIT_CAST_EXPR, CursorKind.PAREN_EXPR):
+        while curr and curr.kind in wrapper_kinds:
             children = list(curr.get_children())
             if len(children) == 1:
                 curr = children[0]
@@ -294,6 +298,9 @@ class CPPInterpreter:
         curr = self.unwrap(cursor)
         kind = curr.kind
 
+        if kind in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF):
+            return None
+
         # Literals
         if kind == CursorKind.INTEGER_LITERAL:
             tokens = list(curr.get_tokens())
@@ -340,15 +347,27 @@ class CPPInterpreter:
             if len(children) < 2:
                 raise InterpreterError("Invalid binary operator node")
             
-            tokens = [t.spelling for t in curr.get_tokens()]
-            op = None
-            for t in tokens:
-                if t in ('=', '+=', '-=', '*=', '/=', '%=', '+', '-', '*', '/', '%', '==', '!=', '<', '<=', '>', '>=', '&&', '||'):
-                    op = t
-                    break
-
             lhs_node = children[0]
             rhs_node = children[1]
+
+            lhs_end = lhs_node.extent.end
+            rhs_start = rhs_node.extent.start
+            op = None
+            valid_ops = ('=', '+=', '-=', '*=', '/=', '%=', '+', '-', '*', '/', '%', '==', '!=', '<', '<=', '>', '>=', '&&', '||')
+            
+            for t in curr.get_tokens():
+                t_sp = t.spelling
+                if t_sp in valid_ops:
+                    if (t.extent.start.line > lhs_end.line or (t.extent.start.line == lhs_end.line and t.extent.start.column >= lhs_end.column)) and \
+                       (t.extent.end.line < rhs_start.line or (t.extent.end.line == rhs_start.line and t.extent.end.column <= rhs_start.column)):
+                        op = t_sp
+                        break
+
+            if not op:
+                for t in curr.get_tokens():
+                    if t.spelling in valid_ops:
+                        op = t.spelling
+                        break
 
             # Short-circuit logical
             if op == '&&':
@@ -416,7 +435,6 @@ class CPPInterpreter:
             elif op == '+':
                 return self.eval_expr(children[0])
             elif op in ('++', '--'):
-                # Prefix or Postfix
                 child = children[0]
                 old_val = self.eval_expr(child)
                 delta = 1 if op == '++' else -1
@@ -425,7 +443,6 @@ class CPPInterpreter:
                 is_postfix = tokens[-1] in ('++', '--') if len(tokens) > 1 else False
                 return old_val if is_postfix else new_val
             elif op == '*':
-                # Dereference *ptr
                 addr = self.eval_expr(children[0])
                 heap_obj = self.env.heap.get(addr)
                 if heap_obj is not None:
@@ -452,17 +469,11 @@ class CPPInterpreter:
                 raise InterpreterError(f"Invalid member access '{field_name}'")
 
         # Subscripting arr[i]
-        elif kind in (CursorKind.ARRAY_SUBSCRIPT_EXPR, CursorKind.CALL_EXPR):
-            if kind == CursorKind.CALL_EXPR and curr.spelling == 'operator[]':
-                children = list(curr.get_children())
-                arr_val = self.eval_expr(children[0])
-                idx_val = self.eval_expr(children[2])
-                return arr_val[idx_val]
-            elif kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
-                children = list(curr.get_children())
-                arr_val = self.eval_expr(children[0])
-                idx_val = self.eval_expr(children[1])
-                return arr_val[idx_val]
+        elif kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
+            children = list(curr.get_children())
+            arr_val = self.eval_expr(children[0])
+            idx_val = self.eval_expr(children[1])
+            return arr_val[idx_val]
 
         # Allocation: new TreeNode(val) / new ListNode(val)
         elif kind == CursorKind.CXX_NEW_EXPR:
@@ -471,9 +482,8 @@ class CPPInterpreter:
             initial_fields = copy.deepcopy(struct_fields)
 
             children = list(curr.get_children())
-            args = [self.eval_expr(ch) for ch in children if ch.kind not in (CursorKind.TYPE_REF, CursorKind.DECL_REF_EXPR)]
+            args = [self.eval_expr(ch) for ch in children if ch.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
             
-            # Map args to struct fields in declaration order
             field_names = list(initial_fields.keys())
             for idx, arg_val in enumerate(args):
                 if idx < len(field_names):
@@ -486,40 +496,83 @@ class CPPInterpreter:
         elif kind == CursorKind.CALL_EXPR:
             func_name = curr.spelling
             children = list(curr.get_children())
-            
+            tokens = [t.spelling for t in curr.get_tokens()]
+
+            # Resolve function name from first child if empty
+            if not func_name and children:
+                first_child = self.unwrap(children[0])
+                if first_child.kind == CursorKind.DECL_REF_EXPR:
+                    func_name = first_child.spelling
+
+            if func_name == 'operator[]' or (children and any(c.spelling == 'operator[]' for c in children)):
+                arr_val = self.eval_expr(children[0])
+                idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
+                return arr_val[idx_val]
+
             # Vector / std member call
-            if '.' in func_name or '->' in func_name or any(ch.kind == CursorKind.MEMBER_REF_EXPR for ch in children):
-                first_child = children[0]
-                if first_child.kind == CursorKind.MEMBER_REF_EXPR:
+            if '.' in tokens or '->' in tokens or (children and children[0].kind == CursorKind.MEMBER_REF_EXPR):
+                method_name = ""
+                if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
+                    first_child = children[0]
                     m_children = list(first_child.get_children())
                     method_name = first_child.spelling
                     base_val = self.eval_expr(m_children[0])
                     args = [self.eval_expr(c) for c in children[1:]]
+                else:
+                    base_val = self.eval_expr(children[0])
+                    args = [self.eval_expr(c) for c in children[1:]]
+                    for idx_t, tok in enumerate(tokens):
+                        if tok in ('.', '->') and idx_t + 1 < len(tokens):
+                            method_name = tokens[idx_t + 1]
+                            break
 
-                    if isinstance(base_val, list):
-                        if method_name == 'size':
-                            return len(base_val)
-                        elif method_name == 'push_back':
+                if isinstance(base_val, list):
+                    if method_name == 'size':
+                        return len(base_val)
+                    elif method_name == 'push_back':
+                        if args:
                             base_val.append(args[0])
-                            return None
-                        elif method_name == 'empty':
-                            return len(base_val) == 0
+                        return None
+                    elif method_name == 'empty':
+                        return len(base_val) == 0
+
+            # vector constructor call
+            if func_name == 'vector' or (curr.type and 'vector' in curr.type.spelling.lower()):
+                return []
+
+            # Struct constructor call: e.g. Point() or Node()
+            if func_name in self.env.struct_definitions:
+                struct_fields = copy.deepcopy(self.env.struct_definitions[func_name])
+                args = [self.eval_expr(c) for c in children if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.DECL_REF_EXPR)]
+                field_names = list(struct_fields.keys())
+                for idx, arg_val in enumerate(args):
+                    if idx < len(field_names):
+                        struct_fields[field_names[idx]] = arg_val
+                return struct_fields
 
             # Std math functions
             if func_name in ('min', 'std::min'):
-                args = [self.eval_expr(c) for c in children]
+                args = [self.eval_expr(c) for c in children[1:]]
                 return min(args)
             elif func_name in ('max', 'std::max'):
-                args = [self.eval_expr(c) for c in children]
+                args = [self.eval_expr(c) for c in children[1:]]
                 return max(args)
             elif func_name in ('abs', 'std::abs'):
-                arg = self.eval_expr(children[0])
+                arg = self.eval_expr(children[1])
                 return abs(arg)
 
             # User-defined function call
             if func_name in self.env.function_cursors:
                 func_cursor = self.env.function_cursors[func_name]
-                args = [self.eval_expr(c) for c in children if c.kind not in (CursorKind.TYPE_REF, CursorKind.DECL_REF_EXPR)]
+                arg_nodes = []
+                for c in children:
+                    if c.kind in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF):
+                        continue
+                    if c.spelling == func_name and c.kind in (CursorKind.DECL_REF_EXPR, CursorKind.UNEXPOSED_EXPR):
+                        continue
+                    arg_nodes.append(c)
+
+                args = [self.eval_expr(c) for c in arg_nodes]
                 return self.call_function(func_cursor, args)
 
         elif kind == CursorKind.INIT_LIST_EXPR:
@@ -582,7 +635,11 @@ class CPPInterpreter:
 
     def exec_stmt(self, cursor: Cursor):
         curr = self.unwrap(cursor)
-        kind = curr.kind
+        wrapper_kinds = {CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR}
+        for name in ('IMPLICIT_CAST_EXPR', 'CXX_FUNCTIONAL_CAST_EXPR', 'CSTYLE_CAST_EXPR'):
+            if hasattr(CursorKind, name):
+                wrapper_kinds.add(getattr(CursorKind, name))
+        kind = cursor.kind if cursor.kind not in wrapper_kinds else curr.kind
         line_no = curr.location.line - self.header_lines_count
 
         if kind == CursorKind.COMPOUND_STMT:
@@ -595,7 +652,7 @@ class CPPInterpreter:
                 if child.kind == CursorKind.VAR_DECL:
                     var_name = child.spelling
                     type_str = child.type.spelling
-                    children = list(child.get_children())
+                    children = [ch for ch in child.get_children() if ch.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
                     
                     if children:
                         init_val = self.eval_expr(children[0])
@@ -622,7 +679,6 @@ class CPPInterpreter:
 
         elif kind == CursorKind.FOR_STMT:
             children = list(curr.get_children())
-            # typical for(init; cond; inc) body
             init_node = children[0] if len(children) > 0 else None
             cond_node = children[1] if len(children) > 1 else None
             inc_node = children[2] if len(children) > 2 else None
@@ -717,7 +773,6 @@ class CPPInterpreter:
             pass
 
         else:
-            # Standalone expressions or assignments
             self.emit_step(line_no)
             self.eval_expr(curr)
 

@@ -6,6 +6,8 @@ namespace std {
     struct vector {
         T& operator[](int idx);
         int size();
+        void push_back(const T& val);
+        bool empty();
     };
     template<typename K, typename V>
     struct map {
