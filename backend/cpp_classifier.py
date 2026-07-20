@@ -1,5 +1,32 @@
 from clang.cindex import Index, CursorKind, TypeKind
 
+DEFAULT_HEADER_MOCKS = """
+namespace std {
+    template<typename T>
+    struct vector {
+        T& operator[](int idx);
+        int size();
+    };
+    template<typename K, typename V>
+    struct map {
+        V& operator[](const K& key);
+        int count(const K& key);
+    };
+    template<typename K, typename V>
+    struct unordered_map {
+        V& operator[](const K& key);
+        int count(const K& key);
+    };
+}
+"""
+
+def parse_cpp_ast(code: str, use_header_mocks: bool = True):
+    index = Index.create()
+    full_code = (DEFAULT_HEADER_MOCKS + "\n" + code) if use_header_mocks else code
+    tu = index.parse('test.cpp', unsaved_files=[('test.cpp', full_code)])
+    header_lines_count = len(DEFAULT_HEADER_MOCKS.splitlines()) if use_header_mocks else 0
+    return tu, header_lines_count
+
 def find_decl_ref(cursor):
     if cursor.kind == CursorKind.DECL_REF_EXPR:
         return cursor
