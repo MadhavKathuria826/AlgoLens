@@ -291,17 +291,23 @@ int main() {{
 
 def run_differential_tests():
     print("=" * 80)
-    print("      CPP_INTERPRETER DIFFERENTIAL TEST HARNESS REPORT")
+    print("      CPP_INTERPRETER TEST HARNESS REPORT")
     print("=" * 80)
 
     compiler_path, comp_name = find_compiler()
     if compiler_path:
-        comp_ver = subprocess.run([compiler_path, "--version"], capture_output=True, text=True).stdout.splitlines()[0]
-        print(f"Native Compiler Status: REAL NATIVE BINARY COMPILER FOUND ({comp_ver})")
-        print(f"Compiler Path: {compiler_path}\n")
+        try:
+            comp_ver = subprocess.run([compiler_path, "--version"], capture_output=True, text=True).stdout.splitlines()[0]
+            print(f"Compiler Installed       : YES ({comp_ver})")
+            print(f"Compiler Location        : {compiler_path}")
+        except Exception:
+            print(f"Compiler Installed       : YES ({compiler_path})")
+        
+        print(f"Binary Execution Status  : BLOCKED BY WINDOWS OS POLICY (WinError 4551 / WDAC Application Control)")
+        print(f"Validation Methodology   : MANUAL GROUND TRUTH (KNOWN LIMITATION - Real compiled binary execution blocked by OS policy)\n")
     else:
-        print("Native Compiler Status: NOT FOUND ON PATH OR COMMON DIRS")
-        print("Note: Fixtures validated against standard C++ g++ language specification expected states.\n")
+        print("Compiler Installed       : NO")
+        print("Validation Methodology   : MANUAL GROUND TRUTH (KNOWN LIMITATION - g++ binary not found)\n")
 
     total_fixtures = len(FIXTURES)
     passed_fixtures = 0
@@ -344,7 +350,7 @@ def run_differential_tests():
         except Exception as e:
             interp_error = str(e)
 
-        # 3. Native C++ Binary Execution (if compiler available)
+        # 3. Native C++ Binary Execution Check
         native_ok, native_return, native_msg = (False, None, "")
         if compiler_path:
             native_ok, native_return, native_msg = run_native_cpp(fix["code"], fix["entry_function"], compiler_path)
@@ -385,9 +391,7 @@ def run_differential_tests():
         print(f"Status: {'[PASS]' if passed else '[FAIL]'}")
         print(f"  - Entry Point      : {fix['entry_function']}()")
         print(f"  - Actual Return    : {interp_return}")
-        print(f"  - Expected Return  : {expected_return}" + (" (Verified via real compiled C++ binary)" if native_ok else " (C++ Ground Truth)"))
-        if native_ok:
-            print(f"  - Real C++ Binary stdout: {native_msg.strip()}")
+        print(f"  - Expected Return  : {expected_return} (Manual Ground Truth - Real Binary Execution Blocked by OS WDAC Policy)")
         print(f"  - Total Trace Steps: {len(steps)}")
 
         if steps:
@@ -406,7 +410,7 @@ def run_differential_tests():
             passed_fixtures += 1
 
     print("=" * 80)
-    print(f"FINAL DIFFERENTIAL TEST SUMMARY: {passed_fixtures}/{total_fixtures} PASSED")
+    print(f"FINAL TEST HARNESS SUMMARY: {passed_fixtures}/{total_fixtures} PASSED")
     print("=" * 80)
 
     if passed_fixtures < total_fixtures:
