@@ -19,6 +19,27 @@ app.add_middleware(
 
 @app.post("/api/execute", response_model=CodeExecutionResponse)
 def execute_code(request: CodeExecutionRequest):
+    if request.language in ('cpp', 'c++'):
+        import cpp_classifier
+        from cpp_interpreter import CPPInterpreter
+        try:
+            entry_info = cpp_classifier.detect_entry_point(request.code, request.selected_method)
+            if entry_info.get("is_ambiguous"):
+                candidates = [c["name"] for c in entry_info.get("candidates", [])]
+                return CodeExecutionResponse(steps=[], needs_disambiguation=True, candidates=candidates)
+
+            entry_func = entry_info.get("name")
+            if not entry_func and entry_info.get("candidates"):
+                entry_func = entry_info["candidates"][0]["name"]
+            if not entry_func:
+                entry_func = "main"
+
+            interpreter = CPPInterpreter(max_recursion_depth=request.max_recursion_depth or 1000)
+            steps, ret_val = interpreter.interpret(request.code, entry_func, [])
+            return CodeExecutionResponse(steps=steps)
+        except Exception as e:
+            return CodeExecutionResponse(steps=[], error=str(e))
+
     try:
         validate_code(request.code)
     except ValueError as e:

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type UiMode = 'void' | 'slate' | 'obsidian';
 export type EditorTheme = 'vs-dark' | 'dracula' | 'monokai';
+export type LanguageMode = 'python' | 'cpp';
 export type GraphicsQuality = 'cinematic' | 'balanced' | 'performance';
 export type SpeedPreset = 'slow' | 'normal' | 'fast';
 export type NodeSize = 'small' | 'medium' | 'large';
@@ -13,6 +14,7 @@ export interface AppSettings {
   // Theme
   uiMode: UiMode;
   editorTheme: EditorTheme;
+  language: LanguageMode;
 
   // Graphics
   graphicsQuality: GraphicsQuality;
@@ -39,6 +41,7 @@ export interface AppSettings {
 export const defaultSettings: AppSettings = {
   uiMode: 'void',
   editorTheme: 'vs-dark',
+  language: 'python',
   graphicsQuality: 'balanced',
   maxRecursionDepth: 1000,
   executionTimeoutMs: 10000,

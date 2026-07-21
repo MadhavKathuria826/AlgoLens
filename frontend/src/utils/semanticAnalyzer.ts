@@ -222,16 +222,15 @@ export class SemanticAnalyzer {
             }
         };
 
-        // Behavioral Push (STACK / QUEUE Enqueue / REAR INSERT)
+        // Behavioral Push (REAR INSERT - standard Array growth)
         if (curLen === prevLen + 1 && prefixMatches) {
-          this.memory[k].containerScores.STACK += 50;
-          this.memory[k].containerScores.QUEUE += 50;
+          this.memory[k].containerScores.ARRAY += 50;
           ensureOps();
           this.memory[k].operations!.rearInsert = true;
         } 
         // Behavioral Pop (STACK / REAR REMOVE)
         else if (curLen === prevLen - 1 && prefixMatches) {
-          this.memory[k].containerScores.STACK += 50;
+          this.memory[k].containerScores.STACK += 300;
           this.memory[k].containerScores.QUEUE -= 50;
           ensureOps();
           this.memory[k].operations!.rearRemove = true;
@@ -290,7 +289,7 @@ export class SemanticAnalyzer {
         }
       } else if (isCurrentArray && !isPrevArray) {
         // Initialization
-        this.memory[k].containerScores.ARRAY += 10;
+        this.memory[k].containerScores.ARRAY += 50;
       }
 
       // Lexical Clues for Arrays
@@ -310,13 +309,9 @@ export class SemanticAnalyzer {
           this.memory[k].containerScores.ARRAY += 50;
         }
 
-        // Lexical Stack Hooks (weak evidence)
-        if (line.includes(`${k}.append(`)) {
-          this.memory[k].containerScores.STACK += 10;
-          this.memory[k].containerScores.QUEUE += 10;
-        }
-        if (line.includes(`${k}.pop()`)) {
-          this.memory[k].containerScores.STACK += 10;
+        // Lexical Stack Hooks
+        if (line.includes(`${k}.pop()`) || line.includes(`${k}.pop_back()`)) {
+          this.memory[k].containerScores.STACK += 150;
         }
         
         // Front operations (Queue/Deque clues)

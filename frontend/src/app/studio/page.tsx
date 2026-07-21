@@ -10,6 +10,7 @@ import axios from 'axios';
 import { Play, RotateCcw, StepForward, StepBack, Loader2, Pause, SkipBack } from 'lucide-react';
 import { SemanticAnalyzer } from '@/utils/semanticAnalyzer';
 import ThemePopover from '@/components/ThemePopover';
+import LanguageSelector from '@/components/LanguageSelector';
 import ExportButton from '@/components/ExportButton';
 import SettingsModal from '@/components/SettingsModal';
 import TestCaseModal from '@/components/TestCaseModal';
@@ -130,6 +131,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
       const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       const res = await axios.post(`${API_URL}/api/execute`, { 
         code, 
+        language: settings.language,
         max_recursion_depth: settings.maxRecursionDepth,
         test_case: optionalTestCase,
         selected_method: optionalSelectedMethod || selectedMethod
@@ -303,6 +305,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           <span className="text-slate-300 font-medium">Studio</span>
         </div>
         <div className="flex items-center gap-2">
+          <LanguageSelector />
           <ThemePopover />
           <ExportButton disabled={steps.length === 0} />
           <SettingsModal />
