@@ -594,7 +594,7 @@ class CPPInterpreter:
                         return None
                     elif method_name == 'pop':
                         if base_val:
-                            var_name = m_children[0].spelling if m_children else ""
+                            var_name = self.unwrap(m_children[0]).spelling if m_children else ""
                             c_type = self.container_types.get(var_name)
                             if c_type == 'queue':
                                 base_val.pop(0)
@@ -759,7 +759,6 @@ class CPPInterpreter:
                 self.exec_stmt(child)
 
         elif kind == CursorKind.DECL_STMT:
-            self.emit_step(line_no)
             for child in curr.get_children():
                 if child.kind == CursorKind.VAR_DECL:
                     var_name = child.spelling
@@ -781,6 +780,7 @@ class CPPInterpreter:
                             init_val = 0
 
                     assign_var(var_name, init_val, type_str, self.env.current_scope, self.env)
+            self.emit_step(line_no)
 
         elif kind == CursorKind.IF_STMT:
             self.emit_step(line_no)
@@ -887,8 +887,8 @@ class CPPInterpreter:
             pass
 
         else:
-            self.emit_step(line_no)
             self.eval_expr(curr)
+            self.emit_step(line_no)
 
     # --- Function Execution ---
 
