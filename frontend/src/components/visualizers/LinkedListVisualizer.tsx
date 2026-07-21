@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo } from 'react';
 
 export default function SinglyLinkedListVisualizer({ heap, locals }: { heap: any, locals: any }) {
+  const isNullPtr = (val: any) => !val || val === 'None' || val === '0x0000' || val === 'nullptr' || val === 'NULL';
+
   // 1. Detect and extract lists from the heap
   const { lists, pointersByNode, pointerLanes, isDoublyLinked } = useMemo(() => {
     if (!heap) return { lists: [], pointersByNode: {}, pointerLanes: [], isDoublyLinked: false };
@@ -14,7 +16,7 @@ export default function SinglyLinkedListVisualizer({ heap, locals }: { heap: any
 
     nodes.forEach(n => {
       const next = heap[n].fields.next;
-      if (next && next !== 'None' && indegree[next] !== undefined) {
+      if (!isNullPtr(next) && indegree[next] !== undefined) {
         indegree[next]++;
       }
     });
@@ -31,13 +33,13 @@ export default function SinglyLinkedListVisualizer({ heap, locals }: { heap: any
       if (globalVisited.has(h)) return;
       const list: string[] = [];
       let curr = h;
-      while (curr && curr !== 'None' && !globalVisited.has(curr)) {
+      while (!isNullPtr(curr) && !globalVisited.has(curr)) {
         list.push(curr);
         globalVisited.add(curr);
         curr = heap[curr]?.fields?.next;
       }
       
-      const cycleTarget = (curr && curr !== 'None') ? curr : null;
+      const cycleTarget = !isNullPtr(curr) ? curr : null;
       const isPerfectCircle = list.length > 1 && cycleTarget === h;
       
       lists.push({ nodes: list, isPerfectCircle, cycleTarget });
@@ -65,7 +67,7 @@ export default function SinglyLinkedListVisualizer({ heap, locals }: { heap: any
 
     const isDoublyLinked = nodes.some(k => {
       const prev = heap[k].fields?.prev;
-      return prev && prev !== 'None' && prev !== null;
+      return !isNullPtr(prev);
     });
 
     return { lists, pointersByNode, pointerLanes, isDoublyLinked };

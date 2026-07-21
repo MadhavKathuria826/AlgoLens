@@ -19,6 +19,8 @@ class Step(BaseModel):
     event_type: str # 'call', 'line', 'return'
     locals: Optional[Dict[str, Any]] = None
     heap: Optional[Dict[str, Any]] = None
+    isTreeAlgorithm: Optional[bool] = False
+    isLinkedListAlgorithm: Optional[bool] = False
 
 class CodeExecutionResponse(BaseModel):
     steps: List[Step]

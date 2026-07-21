@@ -75,10 +75,14 @@ class Heap:
         self._address_counter = 0x1000
         self._memory: Dict[str, Dict[str, Any]] = {}
 
-    def allocate(self, initial_fields: Dict[str, Any] = None) -> str:
+    def allocate(self, type_name: str = "Object", initial_fields: Dict[str, Any] = None) -> str:
         addr = f"0x{self._address_counter:04x}"
         self._address_counter += 4
-        self._memory[addr] = copy.deepcopy(initial_fields) if initial_fields is not None else {}
+        fields = copy.deepcopy(initial_fields) if initial_fields is not None else {}
+        self._memory[addr] = {
+            "type": type_name,
+            "fields": fields
+        }
         return addr
 
     def get(self, addr: str) -> Optional[Dict[str, Any]]:
@@ -86,14 +90,15 @@ class Heap:
 
     def set_field(self, addr: str, field: str, value: Any):
         if addr in self._memory:
-            self._memory[addr][field] = value
+            self._memory[addr]["fields"][field] = value
         else:
             raise KeyError(f"Null or invalid pointer dereference at address '{addr}'")
 
     def get_field(self, addr: str, field: str) -> Any:
         if addr in self._memory:
-            if field in self._memory[addr]:
-                return self._memory[addr][field]
+            fields = self._memory[addr]["fields"]
+            if field in fields:
+                return fields[field]
             raise AttributeError(f"Object at '{addr}' has no field '{field}'")
         raise KeyError(f"Null or invalid pointer dereference at address '{addr}'")
 
@@ -507,19 +512,22 @@ class CPPInterpreter:
 
         # Allocation: new TreeNode(val) / new ListNode(val)
         elif kind == CursorKind.CXX_NEW_EXPR:
-            type_str = curr.type.spelling.replace('*', '').strip()
-            struct_fields = self.env.struct_definitions.get(type_str, {})
-            initial_fields = copy.deepcopy(struct_fields)
+            type_str = curr.type.spelling.replace('*', '').replace('struct ', '').replace('class ', '').strip()
+            struct_fields = copy.deepcopy(self.env.struct_definitions.get(type_str, {}))
 
             children = list(curr.get_children())
             args = [self.eval_expr(ch) for ch in children if ch.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
             
-            field_names = list(initial_fields.keys())
-            for idx, arg_val in enumerate(args):
-                if idx < len(field_names):
-                    initial_fields[field_names[idx]] = arg_val
+            if len(args) == 1 and isinstance(args[0], dict):
+                initial_fields = args[0]
+            else:
+                initial_fields = struct_fields
+                field_names = list(initial_fields.keys())
+                for idx, arg_val in enumerate(args):
+                    if idx < len(field_names):
+                        initial_fields[field_names[idx]] = arg_val
 
-            addr = self.env.heap.allocate(initial_fields)
+            addr = self.env.heap.allocate(type_str, initial_fields)
             return addr
 
         # Function / Method calls
@@ -539,22 +547,13 @@ class CPPInterpreter:
                 idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 return arr_val[idx_val]
 
-            # Vector / std member call
-            if '.' in tokens or '->' in tokens or (children and children[0].kind == CursorKind.MEMBER_REF_EXPR):
-                method_name = ""
-                if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
-                    first_child = children[0]
-                    m_children = list(first_child.get_children())
-                    method_name = first_child.spelling
-                    base_val = self.eval_expr(m_children[0])
-                    args = [self.eval_expr(c) for c in children[1:]]
-                else:
-                    base_val = self.eval_expr(children[0])
-                    args = [self.eval_expr(c) for c in children[1:]]
-                    for idx_t, tok in enumerate(tokens):
-                        if tok in ('.', '->') and idx_t + 1 < len(tokens):
-                            method_name = tokens[idx_t + 1]
-                            break
+            # Vector / std member call (e.g. vec.push_back(val), ptr->size())
+            if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
+                first_child = children[0]
+                m_children = list(first_child.get_children())
+                method_name = first_child.spelling
+                base_val = self.eval_expr(m_children[0]) if m_children else None
+                args = [self.eval_expr(c) for c in children[1:]]
 
                 if isinstance(base_val, list):
                     if method_name == 'size':

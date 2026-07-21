@@ -468,12 +468,16 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
         return {"name": "", "return_type": "", "params": [], "candidates": [], "is_ambiguous": False}
 
     candidates = []
+    has_main = False
     
     def visit(cursor):
+        nonlocal has_main
         if cursor.kind in (CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD):
             if cursor.location.file and cursor.location.file.name == 'test.cpp':
                 func_name = cursor.spelling
-                if func_name != 'main':
+                if func_name == 'main':
+                    has_main = True
+                else:
                     params = []
                     for child in cursor.get_children():
                         if child.kind == CursorKind.PARM_DECL:
@@ -500,9 +504,6 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
 
     visit(tu.cursor)
 
-    if not candidates:
-        return {"name": "", "return_type": "", "params": [], "candidates": [], "is_ambiguous": False}
-
     if selected_method:
         for cand in candidates:
             if cand["name"] == selected_method:
@@ -515,6 +516,21 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
                     "candidates": candidates,
                     "is_ambiguous": False
                 }
+
+    if has_main:
+        return {
+            "name": "main",
+            "return_type": "int",
+            "params": [],
+            "is_class": False,
+            "class_name": None,
+            "candidates": candidates,
+            "is_ambiguous": False,
+            "has_invocation": True
+        }
+
+    if not candidates:
+        return {"name": "", "return_type": "", "params": [], "candidates": [], "is_ambiguous": False}
 
     if len(candidates) > 1:
         return {

@@ -36,6 +36,15 @@ def execute_code(request: CodeExecutionRequest):
 
             interpreter = CPPInterpreter(max_recursion_depth=request.max_recursion_depth or 1000)
             steps, ret_val = interpreter.interpret(request.code, entry_func, [])
+
+            is_tree = cpp_classifier.classify_tree(request.code).get("is_tree", False)
+            is_linked_list = cpp_classifier.classify_linked_list(request.code).get("is_linked_list", False)
+            for step in steps:
+                if is_tree:
+                    step.isTreeAlgorithm = True
+                elif is_linked_list:
+                    step.isLinkedListAlgorithm = True
+
             return CodeExecutionResponse(steps=steps)
         except Exception as e:
             return CodeExecutionResponse(steps=[], error=str(e))
