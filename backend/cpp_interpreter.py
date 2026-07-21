@@ -2,7 +2,7 @@ import copy
 import math
 from typing import Dict, Any, List, Optional, Tuple, Union
 from clang.cindex import Index, CursorKind, TypeKind, Cursor
-from cpp_classifier import parse_cpp_ast
+from cpp_classifier import parse_cpp_ast, classify_stl_containers
 from models import Step, VisualizationData
 
 # --- Exceptions for Control Flow and Safety Caps ---
@@ -229,6 +229,7 @@ class CPPInterpreter:
         self.max_recursion_depth = max_recursion_depth
         self.max_loop_iterations = max_loop_iterations
         self.max_total_steps = max_total_steps
+        self.container_types: Dict[str, str] = {}
 
     def unwrap(self, cursor: Cursor) -> Cursor:
         """Strip implicit Clang wrapper nodes."""
@@ -264,15 +265,42 @@ class CPPInterpreter:
         heap_snapshot = self.env.heap.to_dict()
 
         visualizations = []
+        import json
         for k, v in locals_snapshot.items():
+            c_type = self.container_types.get(k)
             if isinstance(v, list):
+                if c_type == 'stack':
+                    visualizations.append(VisualizationData(
+                        type='Stack',
+                        details={
+                            'name': k,
+                            'value': list(v),
+                            'obj_id': f"cpp_stack_{k}"
+                        }
+                    ))
+                elif c_type == 'queue':
+                    visualizations.append(VisualizationData(
+                        type='Queue',
+                        details={
+                            'name': k,
+                            'value': list(v),
+                            'obj_id': f"cpp_queue_{k}"
+                        }
+                    ))
+                else:
+                    visualizations.append(VisualizationData(
+                        type='Array',
+                        details={
+                            'name': k,
+                            'value': list(v),
+                            'obj_id': f"cpp_list_{k}"
+                        }
+                    ))
+            elif isinstance(v, dict):
+                dict_str = "{" + ", ".join(f"{json.dumps(str(dk))}: {json.dumps(dv)}" for dk, dv in v.items()) + "}"
                 visualizations.append(VisualizationData(
-                    type='Array',
-                    details={
-                        'name': k,
-                        'value': list(v),
-                        'obj_id': f"cpp_list_{k}"
-                    }
+                    type='Variable',
+                    details={ k: dict_str }
                 ))
 
         scalar_locals = {k: v for k, v in locals_snapshot.items() if not isinstance(v, (list, dict))}
@@ -547,27 +575,82 @@ class CPPInterpreter:
                 idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 return arr_val[idx_val]
 
+            first_child = self.unwrap(children[0]) if children else None
+
             # Vector / std member call (e.g. vec.push_back(val), ptr->size())
-            if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
-                first_child = children[0]
+            if first_child and first_child.kind == CursorKind.MEMBER_REF_EXPR:
                 m_children = list(first_child.get_children())
-                method_name = first_child.spelling
+                m_tokens = [t.spelling for t in first_child.get_tokens()]
+                method_name = first_child.spelling or (m_tokens[-1] if m_tokens else "")
                 base_val = self.eval_expr(m_children[0]) if m_children else None
                 args = [self.eval_expr(c) for c in children[1:]]
 
                 if isinstance(base_val, list):
                     if method_name == 'size':
                         return len(base_val)
-                    elif method_name == 'push_back':
+                    elif method_name in ('push', 'push_back'):
                         if args:
                             base_val.append(args[0])
                         return None
+                    elif method_name == 'pop':
+                        if base_val:
+                            var_name = m_children[0].spelling if m_children else ""
+                            c_type = self.container_types.get(var_name)
+                            if c_type == 'queue':
+                                base_val.pop(0)
+                            else:
+                                base_val.pop()
+                        return None
+                    elif method_name == 'top':
+                        return base_val[-1] if base_val else None
+                    elif method_name == 'front':
+                        return base_val[0] if base_val else None
+                    elif method_name == 'back':
+                        return base_val[-1] if base_val else None
+                    elif method_name == 'insert':
+                        if args:
+                            val = args[0]
+                            if val not in base_val:
+                                base_val.append(val)
+                        return None
+                    elif method_name == 'erase':
+                        if args and args[0] in base_val:
+                            base_val.remove(args[0])
+                        return None
+                    elif method_name in ('count', 'find'):
+                        if args:
+                            return 1 if args[0] in base_val else 0
+                        return 0
                     elif method_name == 'empty':
                         return len(base_val) == 0
 
-            # vector constructor call
-            if func_name == 'vector' or (curr.type and 'vector' in curr.type.spelling.lower()):
+                elif isinstance(base_val, dict):
+                    if method_name == 'size':
+                        return len(base_val)
+                    elif method_name == 'insert':
+                        if args:
+                            if isinstance(args[0], (tuple, list)) and len(args[0]) == 2:
+                                base_val[args[0][0]] = args[0][1]
+                            elif len(args) >= 2:
+                                base_val[args[0]] = args[1]
+                        return None
+                    elif method_name == 'erase':
+                        if args:
+                            base_val.pop(args[0], None)
+                        return None
+                    elif method_name in ('count', 'find'):
+                        if args:
+                            return 1 if args[0] in base_val else 0
+                        return 0
+                    elif method_name == 'empty':
+                        return len(base_val) == 0
+
+            # Container constructor calls
+            type_spelling = curr.type.spelling.lower() if curr.type else ""
+            if func_name in ('vector', 'stack', 'queue', 'set', 'unordered_set') or any(t in type_spelling for t in ('vector', 'stack', 'queue', 'set')):
                 return []
+            if func_name in ('map', 'unordered_map') or 'map' in type_spelling:
+                return {}
 
             # Struct constructor call: e.g. Point() or Node()
             if func_name in self.env.struct_definitions:
@@ -688,8 +771,10 @@ class CPPInterpreter:
                     else:
                         if is_pointer_type(type_str):
                             init_val = "0x0000"
-                        elif 'vector' in type_str:
+                        elif any(t in type_str.lower() for t in ('vector', 'stack', 'queue', 'set')):
                             init_val = []
+                        elif any(t in type_str.lower() for t in ('map', 'unordered_map')):
+                            init_val = {}
                         elif type_str in self.env.struct_definitions:
                             init_val = copy.deepcopy(self.env.struct_definitions[type_str])
                         else:
@@ -840,6 +925,7 @@ class CPPInterpreter:
     def interpret(self, code: str, entry_function_name: str, args: List[Any]) -> Tuple[List[Step], Any]:
         """Interprets C++ code starting at entry_function_name with given test arguments."""
         tu, self.header_lines_count = parse_cpp_ast(code, use_header_mocks=True)
+        self.container_types = classify_stl_containers(code)
         self.parse_struct_definitions(tu.cursor)
 
         if entry_function_name not in self.env.function_cursors:

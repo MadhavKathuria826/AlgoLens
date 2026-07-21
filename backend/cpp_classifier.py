@@ -2,6 +2,7 @@ from clang.cindex import Index, CursorKind, TypeKind
 
 DEFAULT_HEADER_MOCKS = """
 namespace std {
+    struct string {};
     template<typename T>
     struct vector {
         T& operator[](int idx);
@@ -9,15 +10,54 @@ namespace std {
         void push_back(const T& val);
         bool empty();
     };
+    template<typename T>
+    struct stack {
+        void push(const T& val);
+        void pop();
+        T& top();
+        bool empty();
+        int size();
+    };
+    template<typename T>
+    struct queue {
+        void push(const T& val);
+        void pop();
+        T& front();
+        T& back();
+        bool empty();
+        int size();
+    };
     template<typename K, typename V>
     struct map {
         V& operator[](const K& key);
         int count(const K& key);
+        void erase(const K& key);
+        int size();
+        bool empty();
     };
     template<typename K, typename V>
     struct unordered_map {
         V& operator[](const K& key);
         int count(const K& key);
+        void erase(const K& key);
+        int size();
+        bool empty();
+    };
+    template<typename T>
+    struct set {
+        void insert(const T& val);
+        void erase(const T& val);
+        int count(const T& val);
+        int size();
+        bool empty();
+    };
+    template<typename T>
+    struct unordered_set {
+        void insert(const T& val);
+        void erase(const T& val);
+        int count(const T& val);
+        int size();
+        bool empty();
     };
 }
 """
@@ -550,3 +590,38 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
         "candidates": candidates,
         "is_ambiguous": False
     }
+
+def classify_stl_containers(code: str) -> dict:
+    """
+    Scans C++ source code AST for declarations of std::stack, std::queue,
+    std::map / std::unordered_map, and std::set / std::unordered_set.
+    Returns dict mapping variable_name -> container_type ('stack', 'queue', 'map', 'set', 'vector').
+    """
+    try:
+        tu, _ = parse_cpp_ast(code, use_header_mocks=True)
+    except Exception:
+        return {}
+
+    container_types = {}
+
+    def visit(cursor):
+        if cursor.kind == CursorKind.VAR_DECL:
+            if cursor.location.file and cursor.location.file.name == 'test.cpp':
+                var_name = cursor.spelling
+                type_spelling = cursor.type.spelling.lower()
+                if 'stack<' in type_spelling:
+                    container_types[var_name] = 'stack'
+                elif 'queue<' in type_spelling:
+                    container_types[var_name] = 'queue'
+                elif 'map<' in type_spelling or 'unordered_map<' in type_spelling:
+                    container_types[var_name] = 'map'
+                elif 'set<' in type_spelling or 'unordered_set<' in type_spelling:
+                    container_types[var_name] = 'set'
+                elif 'vector<' in type_spelling:
+                    container_types[var_name] = 'vector'
+
+        for child in cursor.get_children():
+            visit(child)
+
+    visit(tu.cursor)
+    return container_types
