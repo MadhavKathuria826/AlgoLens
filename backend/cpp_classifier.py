@@ -1,4 +1,51 @@
-from clang.cindex import Index, CursorKind, TypeKind
+import os
+import sys
+import ctypes.util
+from clang.cindex import Index, CursorKind, TypeKind, Config
+
+def configure_libclang():
+    if Config().library_file or Config().library_path:
+        return
+    try:
+        import clang.native
+        native_dir = os.path.dirname(clang.native.__file__)
+        for fname in ('libclang.so', 'libclang.so.1', 'libclang.dll', 'libclang.dylib'):
+            fpath = os.path.join(native_dir, fname)
+            if os.path.exists(fpath):
+                Config.set_library_file(fpath)
+                return
+    except Exception:
+        pass
+    for p in sys.path:
+        for sub in ('clang/native', 'libclang/native', 'libclang'):
+            native_dir = os.path.join(p, sub)
+            if os.path.isdir(native_dir):
+                for fname in ('libclang.so', 'libclang.so.1', 'libclang.dll', 'libclang.dylib'):
+                    fpath = os.path.join(native_dir, fname)
+                    if os.path.exists(fpath):
+                        Config.set_library_file(fpath)
+                        return
+    linux_paths = [
+        '/usr/lib/x86_64-linux-gnu/libclang.so',
+        '/usr/lib/x86_64-linux-gnu/libclang.so.1',
+        '/usr/lib/llvm-14/lib/libclang.so',
+        '/usr/lib/llvm-13/lib/libclang.so',
+        '/usr/lib/llvm-12/lib/libclang.so',
+        '/usr/lib/libclang.so',
+    ]
+    for lp in linux_paths:
+        if os.path.exists(lp):
+            Config.set_library_file(lp)
+            return
+    found = ctypes.util.find_library('clang') or ctypes.util.find_library('clang-14') or ctypes.util.find_library('clang-13')
+    if found:
+        try:
+            Config.set_library_file(found)
+            return
+        except Exception:
+            pass
+
+configure_libclang()
 
 DEFAULT_HEADER_MOCKS = """
 namespace std {
