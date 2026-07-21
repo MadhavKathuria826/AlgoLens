@@ -78,20 +78,26 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     }
   }, [settings.language, code]);
 
+  const codeRef = useRef(code);
+  useEffect(() => {
+    codeRef.current = code;
+  }, [code]);
+
   // Expose global callback for Puppeteer testing to inject custom code
   useEffect(() => {
     (window as any).setStudioCode = (newCode: string) => {
+      codeRef.current = newCode;
       setCode(newCode);
     };
-    (window as any).runStudioCode = (overrideCode?: string) => {
+    (window as any).runStudioCode = (overrideCode?: string, overrideLang?: string) => {
       setSelectedMethod(null);
-      executeCode(undefined, undefined, false, overrideCode);
+      executeCode(undefined, undefined, false, overrideCode, overrideLang);
     };
     return () => {
       delete (window as any).setStudioCode;
       delete (window as any).runStudioCode;
     };
-  }, [code, settings, selectedMethod]);
+  }, [code, settings]);
 
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,16 +174,17 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     executeCode();
   };
 
-  const executeCode = async (optionalTestCase?: string, optionalSelectedMethod?: string, isFromModal: boolean = false, overrideCode?: string) => {
+  const executeCode = async (optionalTestCase?: string, optionalSelectedMethod?: string, isFromModal: boolean = false, overrideCode?: string, overrideLang?: string) => {
     setIsLoading(true);
     setIsPlaying(false);
     setModalError(null);
-    const targetCode = overrideCode || code;
+    const targetCode = overrideCode || codeRef.current || code;
+    const targetLang = overrideLang || settings.language;
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       const res = await axios.post(`${API_URL}/api/execute`, { 
         code: targetCode, 
-        language: settings.language,
+        language: targetLang,
         max_recursion_depth: settings.maxRecursionDepth,
         test_case: optionalTestCase,
         selected_method: optionalSelectedMethod || selectedMethod
