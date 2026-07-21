@@ -547,22 +547,13 @@ class CPPInterpreter:
                 idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 return arr_val[idx_val]
 
-            # Vector / std member call
-            if '.' in tokens or '->' in tokens or (children and children[0].kind == CursorKind.MEMBER_REF_EXPR):
-                method_name = ""
-                if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
-                    first_child = children[0]
-                    m_children = list(first_child.get_children())
-                    method_name = first_child.spelling
-                    base_val = self.eval_expr(m_children[0])
-                    args = [self.eval_expr(c) for c in children[1:]]
-                else:
-                    base_val = self.eval_expr(children[0])
-                    args = [self.eval_expr(c) for c in children[1:]]
-                    for idx_t, tok in enumerate(tokens):
-                        if tok in ('.', '->') and idx_t + 1 < len(tokens):
-                            method_name = tokens[idx_t + 1]
-                            break
+            # Vector / std member call (e.g. vec.push_back(val), ptr->size())
+            if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
+                first_child = children[0]
+                m_children = list(first_child.get_children())
+                method_name = first_child.spelling
+                base_val = self.eval_expr(m_children[0]) if m_children else None
+                args = [self.eval_expr(c) for c in children[1:]]
 
                 if isinstance(base_val, list):
                     if method_name == 'size':
