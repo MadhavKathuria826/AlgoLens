@@ -14,11 +14,37 @@ import Viewport from './Viewport';
 import DPVisualizer from './visualizers/DPVisualizer';
 
 export default function VisualizationCanvas({ step, steps = [], currentStepIdx = 0, code, isFullscreen, onToggleFullscreen, recurrenceRelations = [] }: any) {
-  if (!step || !step.visualizations || step.visualizations.length === 0) {
+  if (!step) {
     return <div className="flex-1 flex items-center justify-center text-slate-500 font-light text-lg">Run code to see the algorithm</div>;
   }
 
-  const hasRecursion = step.visualizations.some((v: any) => v.type === 'RecursionTree');
+  let visualizations = (step.visualizations && step.visualizations.length > 0) ? [...step.visualizations] : [];
+
+  if (visualizations.length === 0 && step.locals) {
+    const listEntries = Object.entries(step.locals).filter(([_, v]) => Array.isArray(v));
+    const scalarEntries = Object.entries(step.locals).filter(([_, v]) => !Array.isArray(v) && typeof v !== 'object');
+    const derivedVis: any[] = [];
+    
+    for (const [name, val] of listEntries) {
+      derivedVis.push({
+        type: 'Array',
+        details: { name, value: val, obj_id: `derived_${name}` }
+      });
+    }
+    if (scalarEntries.length > 0) {
+      const details: any = {};
+      for (const [k, v] of scalarEntries) details[k] = v;
+      derivedVis.push({
+        type: 'Variable',
+        details
+      });
+    }
+    visualizations = derivedVis;
+  }
+
+  const effectiveStep = { ...step, visualizations };
+
+  const hasRecursion = effectiveStep.visualizations.some((v: any) => v.type === 'RecursionTree');
 
   const extractLocals = (s: any) => {
     let locals = {};
@@ -34,45 +60,50 @@ export default function VisualizationCanvas({ step, steps = [], currentStepIdx =
     }
     return locals;
   };
-  const activeLocals = extractLocals(step);
+  const activeLocals = extractLocals(effectiveStep);
 
   // Detect active loop line to determine which array is currently being iterated
   let activeLoopLine = "";
   let currentLineCode = "";
-  if (code && step && step.line_number > 0) {
+  if (code && effectiveStep && effectiveStep.line_number > 0) {
     const lines = code.split('\n');
-    currentLineCode = lines[step.line_number - 1] || "";
+    currentLineCode = lines[effectiveStep.line_number - 1] || "";
     const currentIndentation = currentLineCode.search(/\S/);
     
-    for (let i = step.line_number - 1; i >= 0; i--) {
+    for (let i = effectiveStep.line_number - 1; i >= 0; i--) {
       const lineStr = lines[i];
       if (!lineStr) continue;
       const trimmed = lineStr.trim();
       const indent = lineStr.search(/\S/);
       
       if ((trimmed.startsWith('for ') || trimmed.startsWith('while ')) && 
-          (i === step.line_number - 1 || indent < (currentIndentation === -1 ? 999 : currentIndentation))) {
+          (i === effectiveStep.line_number - 1 || indent < (currentIndentation === -1 ? 999 : currentIndentation))) {
         activeLoopLine = trimmed;
         break;
       }
     }
   }
 
-  const anyArrayIterated = step.visualizations.some((v: any) => 
+  const anyArrayIterated = effectiveStep.visualizations.some((v: any) => 
     v.type === 'Array' && activeLoopLine.includes(v.details.name)
   );
 
-  const hasTree = step.isTreeAlgorithm || (step.heap && Object.keys(step.heap).some(k => step.heap[k].fields && ('left' in step.heap[k].fields || 'right' in step.heap[k].fields)));
-  const hasLinkedList = step.isLinkedListAlgorithm || (!hasTree && step.heap && Object.keys(step.heap).some(k => step.heap[k].fields && 'next' in step.heap[k].fields));
+  const hasTree = effectiveStep.isTreeAlgorithm || (effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && ('left' in effectiveStep.heap[k].fields || 'right' in effectiveStep.heap[k].fields)));
+  const hasLinkedList = effectiveStep.isLinkedListAlgorithm || (!hasTree && effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && 'next' in effectiveStep.heap[k].fields));
 
   return (
     <div className="visualization-canvas-root relative w-full h-full flex flex-col">
       <Viewport isFullscreen={isFullscreen} onToggleFullscreen={onToggleFullscreen}>
         <div className="visualization-content-root flex flex-col items-center justify-center gap-8 min-w-max p-8">
-          {hasLinkedList && <LinkedListVisualizer heap={step.heap} locals={activeLocals} />}
-          {hasTree && <TreeVisualizer heap={step.heap} locals={activeLocals} step={step} />}
+          {hasLinkedList && <LinkedListVisualizer heap={effectiveStep.heap} locals={activeLocals} />}
+          {hasTree && <TreeVisualizer heap={effectiveStep.heap} locals={activeLocals} step={effectiveStep} />}
+          {effectiveStep.visualizations.length === 0 && !hasTree && !hasLinkedList && (
+            <div className="text-slate-400 font-light text-base bg-slate-900/40 px-6 py-4 rounded-xl border border-slate-800 backdrop-blur-sm">
+              Scope initializing (Step {currentStepIdx + 1})...
+            </div>
+          )}
           <AnimatePresence mode="popLayout">
-            {step.visualizations.map((vis: any, index: number) => {
+            {effectiveStep.visualizations.map((vis: any, index: number) => {
             switch (vis.type) {
               case 'DP_TABLE':
               case 'MEMOIZATION':

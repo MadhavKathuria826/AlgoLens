@@ -258,13 +258,32 @@ class CPPInterpreter:
 
         heap_snapshot = self.env.heap.to_dict()
 
+        visualizations = []
+        for k, v in locals_snapshot.items():
+            if isinstance(v, list):
+                visualizations.append(VisualizationData(
+                    type='Array',
+                    details={
+                        'name': k,
+                        'value': list(v),
+                        'obj_id': f"cpp_list_{k}"
+                    }
+                ))
+
+        scalar_locals = {k: v for k, v in locals_snapshot.items() if not isinstance(v, (list, dict))}
+        if scalar_locals:
+            visualizations.append(VisualizationData(
+                type='Variable',
+                details=scalar_locals
+            ))
+
         step = Step(
             step_number=self.step_counter,
             line_number=line_number,
             event_type=event_type,
             locals=locals_snapshot,
             heap=heap_snapshot,
-            visualizations=[]
+            visualizations=visualizations
         )
         self.steps.append(step)
         self.step_counter += 1
