@@ -17,6 +17,8 @@ export default function TreeVisualizer({ heap, locals, step }: { heap: any; loca
   const visitedNodesRef = useRef<Set<string>>(new Set());
   const activeFlowsRef = useRef<{ id: string; source: string; target: string; }[]>([]);
 
+  const isNullPtr = (val: any) => !val || val === 'None' || val === '0x0000' || val === 'nullptr' || val === 'NULL';
+
   // 1. Extract active tree nodes from heap
   const nodes: Record<string, any> = {};
   const inDegree: Record<string, number> = {};
@@ -26,10 +28,10 @@ export default function TreeVisualizer({ heap, locals, step }: { heap: any; loca
       inDegree[k] = inDegree[k] || 0;
       const left = (v as any).fields.left;
       const right = (v as any).fields.right;
-      if (left && left !== 'None') {
+      if (!isNullPtr(left)) {
         inDegree[left] = (inDegree[left] || 0) + 1;
       }
-      if (right && right !== 'None') {
+      if (!isNullPtr(right)) {
         inDegree[right] = (inDegree[right] || 0) + 1;
       }
     }
@@ -53,19 +55,19 @@ export default function TreeVisualizer({ heap, locals, step }: { heap: any; loca
       const left = node.fields.left;
       const right = node.fields.right;
 
-      if (left && left !== 'None') traverse(left, depth + 1);
+      if (!isNullPtr(left)) traverse(left, depth + 1);
 
       res[nodeId] = {
         id: nodeId,
         x: currentX,
         y: depth * VERTICAL_SPACING,
         val: node.fields.val,
-        left: left !== 'None' ? left : undefined,
-        right: right !== 'None' ? right : undefined
+        left: !isNullPtr(left) ? left : undefined,
+        right: !isNullPtr(right) ? right : undefined
       };
       currentX += HORIZONTAL_SPACING;
 
-      if (right && right !== 'None') traverse(right, depth + 1);
+      if (!isNullPtr(right)) traverse(right, depth + 1);
     };
 
     // Find roots
