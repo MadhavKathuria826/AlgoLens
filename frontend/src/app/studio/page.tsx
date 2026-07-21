@@ -83,10 +83,15 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     (window as any).setStudioCode = (newCode: string) => {
       setCode(newCode);
     };
+    (window as any).runStudioCode = (overrideCode?: string) => {
+      setSelectedMethod(null);
+      executeCode(undefined, undefined, false, overrideCode);
+    };
     return () => {
       delete (window as any).setStudioCode;
+      delete (window as any).runStudioCode;
     };
-  }, []);
+  }, [code, settings, selectedMethod]);
 
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -158,20 +163,20 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     return () => clearTimeout(timeoutId);
   }, [isPlaying, currentStepIdx, steps.length, playbackSpeed]);
 
-
   const handleRun = () => {
     setSelectedMethod(null);
     executeCode();
   };
 
-  const executeCode = async (optionalTestCase?: string, optionalSelectedMethod?: string, isFromModal: boolean = false) => {
+  const executeCode = async (optionalTestCase?: string, optionalSelectedMethod?: string, isFromModal: boolean = false, overrideCode?: string) => {
     setIsLoading(true);
     setIsPlaying(false);
     setModalError(null);
+    const targetCode = overrideCode || code;
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       const res = await axios.post(`${API_URL}/api/execute`, { 
-        code, 
+        code: targetCode, 
         language: settings.language,
         max_recursion_depth: settings.maxRecursionDepth,
         test_case: optionalTestCase,

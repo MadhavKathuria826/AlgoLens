@@ -575,11 +575,13 @@ class CPPInterpreter:
                 idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 return arr_val[idx_val]
 
+            first_child = self.unwrap(children[0]) if children else None
+
             # Vector / std member call (e.g. vec.push_back(val), ptr->size())
-            if children and children[0].kind == CursorKind.MEMBER_REF_EXPR:
-                first_child = children[0]
+            if first_child and first_child.kind == CursorKind.MEMBER_REF_EXPR:
                 m_children = list(first_child.get_children())
-                method_name = first_child.spelling
+                m_tokens = [t.spelling for t in first_child.get_tokens()]
+                method_name = first_child.spelling or (m_tokens[-1] if m_tokens else "")
                 base_val = self.eval_expr(m_children[0]) if m_children else None
                 args = [self.eval_expr(c) for c in children[1:]]
 
@@ -769,8 +771,10 @@ class CPPInterpreter:
                     else:
                         if is_pointer_type(type_str):
                             init_val = "0x0000"
-                        elif 'vector' in type_str:
+                        elif any(t in type_str.lower() for t in ('vector', 'stack', 'queue', 'set')):
                             init_val = []
+                        elif any(t in type_str.lower() for t in ('map', 'unordered_map')):
+                            init_val = {}
                         elif type_str in self.env.struct_definitions:
                             init_val = copy.deepcopy(self.env.struct_definitions[type_str])
                         else:
