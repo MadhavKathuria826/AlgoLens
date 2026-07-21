@@ -7,43 +7,7 @@ def configure_libclang():
     if Config().library_file or Config().library_path:
         return
 
-    # 1. Check libclang PyPI package directory
-    try:
-        import libclang
-        lc_dir = os.path.dirname(libclang.__file__)
-        for root, _, files in os.walk(lc_dir):
-            for fname in files:
-                if fname.startswith('libclang') and fname.endswith(('.so', '.so.1', '.dll', '.dylib')):
-                    fpath = os.path.join(root, fname)
-                    Config.set_library_file(fpath)
-                    return
-    except Exception:
-        pass
-
-    # 2. Check clang.native PyPI package directory
-    try:
-        import clang.native
-        native_dir = os.path.dirname(clang.native.__file__)
-        for fname in ('libclang.so', 'libclang.so.1', 'libclang.dll', 'libclang.dylib'):
-            fpath = os.path.join(native_dir, fname)
-            if os.path.exists(fpath):
-                Config.set_library_file(fpath)
-                return
-    except Exception:
-        pass
-
-    # 3. Search site-packages & sys.path recursively for libclang shared library
-    for p in sys.path:
-        if not os.path.exists(p):
-            continue
-        for root, _, files in os.walk(p):
-            for fname in files:
-                if fname.startswith('libclang') and fname.endswith(('.so', '.so.1', '.dll', '.dylib')):
-                    fpath = os.path.join(root, fname)
-                    Config.set_library_file(fpath)
-                    return
-
-    # 4. Known Linux system library paths (Ubuntu/Debian)
+    # 1. Known Linux system library paths (installed via apt-get / apt.txt)
     linux_paths = [
         '/usr/lib/x86_64-linux-gnu/libclang.so',
         '/usr/lib/x86_64-linux-gnu/libclang.so.1',
@@ -56,10 +20,13 @@ def configure_libclang():
     ]
     for lp in linux_paths:
         if os.path.exists(lp):
-            Config.set_library_file(lp)
-            return
+            try:
+                Config.set_library_file(lp)
+                return
+            except Exception:
+                pass
 
-    # 5. ctypes find_library fallback
+    # 2. System ctypes find_library fallback
     for name in ('clang', 'clang-14', 'clang-13', 'clang-12'):
         found = ctypes.util.find_library(name)
         if found:
@@ -68,6 +35,31 @@ def configure_libclang():
                 return
             except Exception:
                 pass
+
+    # 3. Check clang.native PyPI package directory
+    try:
+        import clang.native
+        native_dir = os.path.dirname(clang.native.__file__)
+        for fname in ('libclang.so', 'libclang.so.1', 'libclang.dll', 'libclang.dylib'):
+            fpath = os.path.join(native_dir, fname)
+            if os.path.exists(fpath):
+                Config.set_library_file(fpath)
+                return
+    except Exception:
+        pass
+
+    # 4. Check libclang PyPI package directory
+    try:
+        import libclang
+        lc_dir = os.path.dirname(libclang.__file__)
+        for root, _, files in os.walk(lc_dir):
+            for fname in files:
+                if fname.startswith('libclang') and fname.endswith(('.so', '.so.1', '.dll', '.dylib')):
+                    fpath = os.path.join(root, fname)
+                    Config.set_library_file(fpath)
+                    return
+    except Exception:
+        pass
 
 configure_libclang()
 
