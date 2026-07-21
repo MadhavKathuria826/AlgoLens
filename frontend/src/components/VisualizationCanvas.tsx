@@ -119,6 +119,26 @@ export default function VisualizationCanvas({ step, steps = [], currentStepIdx =
                     recurrenceRelations={recurrenceRelations}
                   />
                 );
+              case 'Stack':
+                if (hasTree || hasLinkedList) return null;
+                return (
+                  <StackVisualizer 
+                    key={`stack-${vis.details.name || index}`} 
+                    data={vis.details} 
+                    locals={activeLocals} 
+                    currentLineCode={currentLineCode}
+                  />
+                );
+              case 'Queue':
+                if (hasTree || hasLinkedList) return null;
+                return (
+                  <QueueVisualizer 
+                    key={`queue-${vis.details.name || index}`} 
+                    data={vis.details} 
+                    locals={activeLocals} 
+                    currentLineCode={currentLineCode}
+                  />
+                );
               case 'Array':
                 if (hasTree || hasLinkedList) return null;
 
