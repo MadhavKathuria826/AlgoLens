@@ -19,7 +19,7 @@ app.add_middleware(
 
 @app.post("/api/execute", response_model=CodeExecutionResponse)
 def execute_code(request: CodeExecutionRequest):
-    if request.language in ('cpp', 'c++'):
+    if (request.language or '').lower() in ('cpp', 'c++'):
         import cpp_classifier
         from cpp_interpreter import CPPInterpreter
         try:
