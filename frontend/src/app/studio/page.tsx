@@ -18,8 +18,8 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 
-function StudioInner({ onBack }: { onBack?: () => void }) {
-  const [code, setCode] = useState(
+const DEFAULT_STARTER_CODE: Record<string, string> = {
+  python:
     "# Welcome to AlgoLens Studio\n" +
     "# Write or paste your own Python code here, then click Run to visualize!\n\n" +
     "def bubble_sort(arr):\n" +
@@ -31,10 +31,52 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     "                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n" +
     "    return arr\n\n" +
     "arr = [64, 34, 25, 12, 22]\n" +
-    "bubble_sort(arr)\n"
-  );
+    "bubble_sort(arr)\n",
+  cpp:
+    "// Welcome to AlgoLens Studio (C++)\n" +
+    "// Write or paste your own C++ code here, then click Run to visualize!\n\n" +
+    "int sum_vector() {\n" +
+    "    std::vector<int> nums;\n" +
+    "    nums.push_back(10);\n" +
+    "    nums.push_back(20);\n" +
+    "    nums.push_back(30);\n" +
+    "    int total = 0;\n" +
+    "    for (int i = 0; i < nums.size(); i = i + 1) {\n" +
+    "        total = total + nums[i];\n" +
+    "    }\n" +
+    "    return total;\n" +
+    "}\n"
+};
+
+function StudioInner({ onBack }: { onBack?: () => void }) {
+  const { settings, updateSettings } = useSettings();
+  const [code, setCode] = useState(() => {
+    const lang = settings.language || 'python';
+    return DEFAULT_STARTER_CODE[lang] || DEFAULT_STARTER_CODE.python;
+  });
   const [steps, setSteps] = useState<any[]>([]);
   const [recurrenceRelations, setRecurrenceRelations] = useState<string[]>([]);
+  const prevLanguageRef = useRef(settings.language);
+
+  // Switch starter code when language changes, unless user has typed custom code
+  useEffect(() => {
+    const currentLang = settings.language || 'python';
+    if (prevLanguageRef.current !== currentLang) {
+      prevLanguageRef.current = currentLang;
+
+      const isCurrentCodeEmpty = !code || code.trim() === "";
+      const isCurrentCodeDefault = Object.values(DEFAULT_STARTER_CODE).some(
+        starter => starter.trim() === code.trim()
+      );
+
+      if (isCurrentCodeEmpty || isCurrentCodeDefault) {
+        setCode(DEFAULT_STARTER_CODE[currentLang] || DEFAULT_STARTER_CODE.python);
+        setSteps([]);
+        setRecurrenceRelations([]);
+        setCurrentStepIdx(0);
+      }
+    }
+  }, [settings.language, code]);
 
   // Expose global callback for Puppeteer testing to inject custom code
   useEffect(() => {
@@ -49,7 +91,6 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { settings, updateSettings } = useSettings();
   
   // Local session override for playback speed, initialized from settings default
   const [playbackSpeed, setPlaybackSpeed] = useState(() => 
