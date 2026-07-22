@@ -16,7 +16,7 @@ def configure_libclang():
             # Dynamically load the library to check for undefined symbols or linkage issues
             lib = ctypes.CDLL(fpath)
             # Ensure the library has the critical symbol required by clang package
-            if hasattr(lib, 'clang_getOffsetOfBase') or hasattr(lib, '_clang_getOffsetOfBase'):
+            if hasattr(lib, 'clang_createIndex') or hasattr(lib, '_clang_createIndex'):
                 Config.set_library_file(fpath)
                 return True
         except Exception:
@@ -52,7 +52,7 @@ def configure_libclang():
         if found:
             try:
                 lib = ctypes.CDLL(found)
-                if hasattr(lib, 'clang_getOffsetOfBase') or hasattr(lib, '_clang_getOffsetOfBase'):
+                if hasattr(lib, 'clang_createIndex') or hasattr(lib, '_clang_createIndex'):
                     Config.set_library_file(found)
                     return
             except Exception:
@@ -81,6 +81,15 @@ def configure_libclang():
                 return
     except Exception:
         pass
+
+    # 5. Explicit hardcoded fallback for Render native-buildpack environment
+    render_fallback = '/opt/render/project/src/.venv/lib/python3.14/site-packages/clang/native/libclang.so'
+    if os.path.exists(render_fallback):
+        try:
+            Config.set_library_file(render_fallback)
+            return
+        except Exception:
+            pass
 
 configure_libclang()
 
