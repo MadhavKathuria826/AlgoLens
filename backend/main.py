@@ -49,6 +49,9 @@ def execute_code(request: CodeExecutionRequest):
         except Exception as e:
             return CodeExecutionResponse(steps=[], error=str(e))
 
+    if (request.language or '').lower() not in ('cpp', 'c++'):
+        return CodeExecutionResponse(steps=[], error="Python execution is temporarily disabled for security containment.")
+
     try:
         validate_code(request.code)
     except ValueError as e:
