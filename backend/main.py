@@ -17,6 +17,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/diagnose")
+def diagnose():
+    import os, sys
+    env = {k: v for k, v in os.environ.items() if 'RENDER' in k or 'PORT' in k}
+    lc_dir = '/opt/render/project/src/.venv/lib/python3.14/site-packages/libclang'
+    lc_exists = os.path.exists(lc_dir)
+    cn_dir = '/opt/render/project/src/.venv/lib/python3.14/site-packages/clang/native'
+    cn_exists = os.path.exists(cn_dir)
+    cn_contents = os.listdir(cn_dir) if cn_exists else []
+    return {
+        "commit": env.get("RENDER_GIT_COMMIT"),
+        "env": env,
+        "lc_exists": lc_exists,
+        "cn_exists": cn_exists,
+        "cn_contents": cn_contents,
+        "python_version": sys.version
+    }
+
 @app.post("/api/execute", response_model=CodeExecutionResponse)
 def execute_code(request: CodeExecutionRequest):
     if (request.language or '').lower() in ('cpp', 'c++'):
