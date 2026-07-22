@@ -82,14 +82,15 @@ def configure_libclang():
     except Exception:
         pass
 
-    # 5. Explicit hardcoded fallback for Render native-buildpack environment
-    render_fallback = '/opt/render/project/src/.venv/lib/python3.14/site-packages/clang/native/libclang.so'
-    if os.path.exists(render_fallback):
-        try:
-            Config.set_library_file(render_fallback)
+    # 5. Explicit dynamic fallback for Render native-buildpack environment
+    try:
+        import clang.native
+        dynamic_path = os.path.join(os.path.dirname(clang.native.__file__), 'libclang.so')
+        if os.path.exists(dynamic_path):
+            Config.set_library_file(dynamic_path)
             return
-        except Exception:
-            pass
+    except Exception:
+        pass
 
 configure_libclang()
 
