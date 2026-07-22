@@ -74,7 +74,7 @@ int test_pointer() {
         "args": [],
         "expected_return": 500,
         "expected_locals": {"head": "0x1000"},
-        "expected_heap": {"0x1000": {"val": 500, "next": "0x0000"}}
+        "expected_heap": {"0x1000": {"type": "Node", "fields": {"val": 500, "next": "0x0000"}}}
     },
     {
         "name": "Fixture 4: Fixed-Width 32-bit Signed Integer Overflow Wrapping",
