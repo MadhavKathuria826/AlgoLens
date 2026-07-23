@@ -49,8 +49,7 @@ def execute_code(request: CodeExecutionRequest):
         except Exception as e:
             return CodeExecutionResponse(steps=[], error=str(e))
 
-    if (request.language or '').lower() not in ('cpp', 'c++'):
-        return CodeExecutionResponse(steps=[], error="Python execution is temporarily disabled for security containment.")
+
 
     try:
         validate_code(request.code)
@@ -118,8 +117,8 @@ def execute_code(request: CodeExecutionRequest):
         else:
             steps = run_dp_tracer(request.code)
             if steps is None:
-                tracer = Tracer()
-                steps = tracer.run_code(request.code, request.max_recursion_depth)
+                from sandbox_runner import run_sandboxed_python
+                steps = run_sandboxed_python(request.code, request.max_recursion_depth)
         return CodeExecutionResponse(steps=steps, recurrence_relations=recurrence_relations)
     except Exception as e:
         return CodeExecutionResponse(steps=[], error=str(e))
