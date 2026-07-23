@@ -7,90 +7,19 @@ def configure_libclang():
     if Config().library_file or Config().library_path:
         return
 
-    import ctypes
-
-    def test_and_set_library(fpath):
-        if not os.path.exists(fpath):
-            return False
-        try:
-            # Dynamically load the library to check for undefined symbols or linkage issues
-            lib = ctypes.CDLL(fpath)
-            # Ensure the library has the critical symbol required by clang package
-            if hasattr(lib, 'clang_createIndex') or hasattr(lib, '_clang_createIndex'):
-                Config.set_library_file(fpath)
-                return True
-        except Exception:
-            pass
-        return False
-
-    # 1. Known Linux system library paths (installed via apt-get / apt.txt)
-    linux_paths = [
-        '/usr/lib/x86_64-linux-gnu/libclang.so',
-        '/usr/lib/x86_64-linux-gnu/libclang.so.1',
-        '/usr/lib/x86_64-linux-gnu/libclang-18.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-17.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-16.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-15.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-14.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-13.so',
-        '/usr/lib/llvm-18/lib/libclang.so',
-        '/usr/lib/llvm-17/lib/libclang.so',
-        '/usr/lib/llvm-16/lib/libclang.so',
-        '/usr/lib/llvm-15/lib/libclang.so',
-        '/usr/lib/llvm-14/lib/libclang.so',
-        '/usr/lib/llvm-13/lib/libclang.so',
-        '/usr/lib/llvm-12/lib/libclang.so',
-        '/usr/lib/libclang.so',
-    ]
-    for lp in linux_paths:
-        if test_and_set_library(lp):
-            return
-
-    # 2. System ctypes find_library fallback
-    for name in ('clang', 'clang-18', 'clang-17', 'clang-16', 'clang-15', 'clang-14', 'clang-13', 'clang-12'):
-        found = ctypes.util.find_library(name)
-        if found:
-            try:
-                lib = ctypes.CDLL(found)
-                if hasattr(lib, 'clang_createIndex') or hasattr(lib, '_clang_createIndex'):
-                    Config.set_library_file(found)
-                    return
-            except Exception:
-                pass
-
-    # 3. Check libclang PyPI package directory (checked first as it has complete official prebuilt binaries)
-    try:
-        import libclang
-        lc_dir = os.path.dirname(libclang.__file__)
-        for root, _, files in os.walk(lc_dir):
-            for fname in files:
-                if fname.startswith('libclang') and fname.endswith(('.so', '.so.1', '.dll', '.dylib')):
-                    fpath = os.path.join(root, fname)
-                    if test_and_set_library(fpath):
-                        return
-    except Exception:
-        pass
-
-    # 4. Check clang.native PyPI package directory
     try:
         import clang.native
         native_dir = os.path.dirname(clang.native.__file__)
         for fname in ('libclang.so', 'libclang.so.1', 'libclang.dll', 'libclang.dylib'):
             fpath = os.path.join(native_dir, fname)
-            if test_and_set_library(fpath):
+            if os.path.exists(fpath):
+                Config.set_library_file(fpath)
                 return
-    except Exception:
-        pass
-
-    # 5. Explicit dynamic fallback for Render native-buildpack environment
-    try:
-        import clang.native
-        dynamic_path = os.path.join(os.path.dirname(clang.native.__file__), 'libclang.so')
-        if os.path.exists(dynamic_path):
-            Config.set_library_file(dynamic_path)
-            return
-    except Exception:
-        pass
+        raise RuntimeError(f"No libclang binary found in clang.native directory: {native_dir}")
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to configure libclang from clang.native: {e}")
+        raise
 
 configure_libclang()
 
