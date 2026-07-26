@@ -661,7 +661,15 @@ class CPPInterpreter:
                         if args and args[0] in base_val:
                             base_val.remove(args[0])
                         return None
-                    elif method_name in ('count', 'find'):
+                    elif method_name == 'find':
+                        if args and args[0] in base_val:
+                            return f"ITER_VAL_{args[0]}"
+                        return "END_ITERATOR"
+                    elif method_name in ('end', 'cend'):
+                        return "END_ITERATOR"
+                    elif method_name in ('begin', 'cbegin'):
+                        return f"ITER_VAL_{base_val[0]}" if base_val else "END_ITERATOR"
+                    elif method_name == 'count':
                         if args:
                             return 1 if args[0] in base_val else 0
                         return 0
@@ -682,7 +690,15 @@ class CPPInterpreter:
                         if args:
                             base_val.pop(args[0], None)
                         return None
-                    elif method_name in ('count', 'find'):
+                    elif method_name == 'find':
+                        if args and args[0] in base_val:
+                            return f"ITER_KEY_{args[0]}"
+                        return "END_ITERATOR"
+                    elif method_name in ('end', 'cend'):
+                        return "END_ITERATOR"
+                    elif method_name in ('begin', 'cbegin'):
+                        return f"ITER_KEY_{next(iter(base_val))}" if base_val else "END_ITERATOR"
+                    elif method_name == 'count':
                         if args:
                             return 1 if args[0] in base_val else 0
                         return 0
