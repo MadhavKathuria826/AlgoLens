@@ -35,8 +35,8 @@ payloads = [
     },
     {
         "id": "PAYLOAD_6_LARGE_MEMORY_ALLOC",
-        "name": "6. Large memory allocation test: x = [0] * (10**9)",
-        "code": "x = [0] * (10**9)"
+        "name": "6. Large memory allocation test: x = bytearray(10**14)",
+        "code": "x = bytearray(10**14)"
     },
     {
         "id": "PAYLOAD_7_ENV_EXFILTRATION",

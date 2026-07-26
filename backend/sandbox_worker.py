@@ -4,12 +4,15 @@ import json
 import traceback
 
 def apply_linux_resource_limits():
-    """Apply strict OS-level resource limits on Linux systems (e.g., Render)."""
+    """Apply strict OS-level resource limits on Linux systems (e.g., Render) and read back actual limits."""
     try:
         import resource
         
         # 1. CPU Time Limit (5 seconds CPU time)
-        resource.setrlimit(resource.RLIMIT_CPU, (5, 6))
+        try:
+            resource.setrlimit(resource.RLIMIT_CPU, (5, 6))
+        except (ValueError, OSError):
+            pass
         
         # 2. Virtual Memory Ceiling (256 MB)
         mem_bytes = 256 * 1024 * 1024
@@ -29,9 +32,18 @@ def apply_linux_resource_limits():
             resource.setrlimit(resource.RLIMIT_NOFILE, (3, 3))
         except (ValueError, OSError):
             pass
+
+        # Read back actual kernel-enforced limits
+        limits_readback = {
+            "RLIMIT_CPU": resource.getrlimit(resource.RLIMIT_CPU),
+            "RLIMIT_AS": resource.getrlimit(resource.RLIMIT_AS),
+            "RLIMIT_NPROC": resource.getrlimit(resource.RLIMIT_NPROC) if hasattr(resource, "RLIMIT_NPROC") else None,
+            "RLIMIT_NOFILE": resource.getrlimit(resource.RLIMIT_NOFILE),
+        }
+        sys.stderr.write(f"[RLIMIT_READBACK] {limits_readback}\n")
     except ImportError:
         # Non-Linux system (e.g. Windows local development)
-        pass
+        sys.stderr.write("[RLIMIT_READBACK] Non-Linux environment (resource module unavailable)\n")
 
 def sanitize_environment_and_modules():
     """Purge environment variables, disable sockets, and scrub sys.modules."""
