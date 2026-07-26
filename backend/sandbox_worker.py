@@ -27,9 +27,9 @@ def apply_linux_resource_limits():
         except (ValueError, OSError):
             pass
             
-        # 4. Restrict File Descriptors to Stdin, Stdout, Stderr only (0-2)
+        # 4. Restrict File Descriptors (allow stdin, stdout, stderr and python module imports)
         try:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (3, 3))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (16, 16))
         except (ValueError, OSError):
             pass
 
