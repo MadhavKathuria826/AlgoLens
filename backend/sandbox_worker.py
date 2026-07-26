@@ -21,9 +21,9 @@ def apply_linux_resource_limits():
         except (ValueError, OSError):
             pass
             
-        # 3. Disable Subprocess Creation (0 max user processes / forks)
+        # 3. Limit Process/Thread Creation (64 max processes/threads to allow CPython runtime threads while blocking fork bombs)
         try:
-            resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
+            resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
         except (ValueError, OSError):
             pass
             
