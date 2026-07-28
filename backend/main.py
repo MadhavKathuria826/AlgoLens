@@ -34,8 +34,17 @@ def execute_code(request: CodeExecutionRequest):
             if not entry_func:
                 entry_func = "main"
 
+            params = entry_info.get("params", [])
+            args = []
+            if params and entry_func != "main":
+                if not request.test_case:
+                    return CodeExecutionResponse(steps=[], needs_test_case=True, params=params)
+                import cpp_adapter
+                test_case_data = cpp_adapter.parse_test_case(request.test_case)
+                args = [test_case_data.get(p["name"]) for p in params]
+
             interpreter = CPPInterpreter(max_recursion_depth=request.max_recursion_depth or 1000)
-            steps, ret_val = interpreter.interpret(request.code, entry_func, [])
+            steps, ret_val = interpreter.interpret(request.code, entry_func, args)
 
             is_tree = cpp_classifier.classify_tree(request.code).get("is_tree", False)
             is_linked_list = cpp_classifier.classify_linked_list(request.code).get("is_linked_list", False)

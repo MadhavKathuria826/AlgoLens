@@ -525,8 +525,7 @@ def classify_linked_list(code: str) -> dict:
 
 def detect_entry_point(code: str, selected_method: str = None) -> dict:
     try:
-        index = Index.create()
-        tu = index.parse('test.cpp', unsaved_files=[('test.cpp', code)])
+        tu, header_lines_count = parse_cpp_ast(code, use_header_mocks=True)
     except Exception:
         return {"name": "", "return_type": "", "params": [], "candidates": [], "is_ambiguous": False}
 
@@ -536,7 +535,7 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
     def visit(cursor):
         nonlocal has_main
         if cursor.kind in (CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD):
-            if cursor.location.file and cursor.location.file.name == 'test.cpp':
+            if cursor.location.file and cursor.location.file.name == 'test.cpp' and cursor.extent.start.line > header_lines_count:
                 func_name = cursor.spelling
                 if func_name == 'main':
                     has_main = True
