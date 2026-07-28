@@ -7,36 +7,6 @@ def configure_libclang():
     if Config().library_file or Config().library_path:
         return
 
-    # 1. Known Linux system library paths (installed via apt-get / apt.txt)
-    linux_paths = [
-        '/usr/lib/x86_64-linux-gnu/libclang.so',
-        '/usr/lib/x86_64-linux-gnu/libclang.so.1',
-        '/usr/lib/x86_64-linux-gnu/libclang-14.so',
-        '/usr/lib/x86_64-linux-gnu/libclang-13.so',
-        '/usr/lib/llvm-14/lib/libclang.so',
-        '/usr/lib/llvm-13/lib/libclang.so',
-        '/usr/lib/llvm-12/lib/libclang.so',
-        '/usr/lib/libclang.so',
-    ]
-    for lp in linux_paths:
-        if os.path.exists(lp):
-            try:
-                Config.set_library_file(lp)
-                return
-            except Exception:
-                pass
-
-    # 2. System ctypes find_library fallback
-    for name in ('clang', 'clang-14', 'clang-13', 'clang-12'):
-        found = ctypes.util.find_library(name)
-        if found:
-            try:
-                Config.set_library_file(found)
-                return
-            except Exception:
-                pass
-
-    # 3. Check clang.native PyPI package directory
     try:
         import clang.native
         native_dir = os.path.dirname(clang.native.__file__)
@@ -45,21 +15,11 @@ def configure_libclang():
             if os.path.exists(fpath):
                 Config.set_library_file(fpath)
                 return
-    except Exception:
-        pass
-
-    # 4. Check libclang PyPI package directory
-    try:
-        import libclang
-        lc_dir = os.path.dirname(libclang.__file__)
-        for root, _, files in os.walk(lc_dir):
-            for fname in files:
-                if fname.startswith('libclang') and fname.endswith(('.so', '.so.1', '.dll', '.dylib')):
-                    fpath = os.path.join(root, fname)
-                    Config.set_library_file(fpath)
-                    return
-    except Exception:
-        pass
+        raise RuntimeError(f"No libclang binary found in clang.native directory: {native_dir}")
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to configure libclang from clang.native: {e}")
+        raise
 
 configure_libclang()
 
@@ -565,8 +525,7 @@ def classify_linked_list(code: str) -> dict:
 
 def detect_entry_point(code: str, selected_method: str = None) -> dict:
     try:
-        index = Index.create()
-        tu = index.parse('test.cpp', unsaved_files=[('test.cpp', code)])
+        tu, header_lines_count = parse_cpp_ast(code, use_header_mocks=True)
     except Exception:
         return {"name": "", "return_type": "", "params": [], "candidates": [], "is_ambiguous": False}
 
@@ -576,7 +535,7 @@ def detect_entry_point(code: str, selected_method: str = None) -> dict:
     def visit(cursor):
         nonlocal has_main
         if cursor.kind in (CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD):
-            if cursor.location.file and cursor.location.file.name == 'test.cpp':
+            if cursor.location.file and cursor.location.file.name == 'test.cpp' and cursor.extent.start.line > header_lines_count:
                 func_name = cursor.spelling
                 if func_name == 'main':
                     has_main = True

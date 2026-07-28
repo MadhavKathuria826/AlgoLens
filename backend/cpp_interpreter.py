@@ -364,6 +364,30 @@ class CPPInterpreter:
         if kind in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF):
             return None
 
+        # Fallback for unexposed/cast wrapper nodes
+        wrapper_kinds = {CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR}
+        for name in ('IMPLICIT_CAST_EXPR', 'CXX_FUNCTIONAL_CAST_EXPR', 'CSTYLE_CAST_EXPR'):
+            if hasattr(CursorKind, name):
+                wrapper_kinds.add(getattr(CursorKind, name))
+        if kind in wrapper_kinds or 'UNEXPOSED' in str(kind):
+            expr_children = [c for c in curr.get_children() if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
+            if expr_children:
+                return self.eval_expr(expr_children[0])
+            elif curr.spelling:
+                found, val = self.env.current_scope.lookup(curr.spelling)
+                if found:
+                    return val
+            tokens = [t.spelling for t in curr.get_tokens()]
+            if tokens:
+                found, val = self.env.current_scope.lookup(tokens[0])
+                if found:
+                    return val
+                # If token is string literal e.g. "a" or "b"
+                if tokens[0].startswith('"') and tokens[0].endswith('"'):
+                    return tokens[0].strip('"')
+                elif tokens[0].isdigit():
+                    return int(tokens[0])
+
         # Literals
         if kind == CursorKind.INTEGER_LITERAL:
             tokens = list(curr.get_tokens())
@@ -575,14 +599,34 @@ class CPPInterpreter:
                 idx_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 return arr_val[idx_val]
 
-            first_child = self.unwrap(children[0]) if children else None
+            def find_member_ref(node: Cursor) -> Optional[Cursor]:
+                if not node:
+                    return None
+                if node.kind == CursorKind.MEMBER_REF_EXPR:
+                    return node
+                for child in node.get_children():
+                    m = find_member_ref(child)
+                    if m:
+                        return m
+                return None
 
-            # Vector / std member call (e.g. vec.push_back(val), ptr->size())
-            if first_child and first_child.kind == CursorKind.MEMBER_REF_EXPR:
-                m_children = list(first_child.get_children())
-                m_tokens = [t.spelling for t in first_child.get_tokens()]
-                method_name = first_child.spelling or (m_tokens[-1] if m_tokens else "")
+            member_ref_node = find_member_ref(children[0]) if children else None
+
+            # Vector / std member call (e.g. vec.push_back(val), vec.pop_back(), ptr->size())
+            if member_ref_node:
+                m_children = list(member_ref_node.get_children())
+                m_tokens = [t.spelling for t in member_ref_node.get_tokens()]
+                method_name = member_ref_node.spelling or (m_tokens[-1] if m_tokens else "")
                 base_val = self.eval_expr(m_children[0]) if m_children else None
+
+                # Fallback: if base_val is None, look up container variable from first token
+                if base_val is None and m_tokens:
+                    var_name = m_tokens[0]
+                    found, val = self.env.current_scope.lookup(var_name)
+                    if found:
+                        base_val = val
+                        if var_name in self.container_types:
+                            pass
                 args = [self.eval_expr(c) for c in children[1:]]
 
                 if isinstance(base_val, list):
@@ -592,7 +636,7 @@ class CPPInterpreter:
                         if args:
                             base_val.append(args[0])
                         return None
-                    elif method_name == 'pop':
+                    elif method_name in ('pop', 'pop_back'):
                         if base_val:
                             var_name = self.unwrap(m_children[0]).spelling if m_children else ""
                             c_type = self.container_types.get(var_name)
@@ -617,7 +661,15 @@ class CPPInterpreter:
                         if args and args[0] in base_val:
                             base_val.remove(args[0])
                         return None
-                    elif method_name in ('count', 'find'):
+                    elif method_name == 'find':
+                        if args and args[0] in base_val:
+                            return f"ITER_VAL_{args[0]}"
+                        return "END_ITERATOR"
+                    elif method_name in ('end', 'cend'):
+                        return "END_ITERATOR"
+                    elif method_name in ('begin', 'cbegin'):
+                        return f"ITER_VAL_{base_val[0]}" if base_val else "END_ITERATOR"
+                    elif method_name == 'count':
                         if args:
                             return 1 if args[0] in base_val else 0
                         return 0
@@ -638,7 +690,15 @@ class CPPInterpreter:
                         if args:
                             base_val.pop(args[0], None)
                         return None
-                    elif method_name in ('count', 'find'):
+                    elif method_name == 'find':
+                        if args and args[0] in base_val:
+                            return f"ITER_KEY_{args[0]}"
+                        return "END_ITERATOR"
+                    elif method_name in ('end', 'cend'):
+                        return "END_ITERATOR"
+                    elif method_name in ('begin', 'cbegin'):
+                        return f"ITER_KEY_{next(iter(base_val))}" if base_val else "END_ITERATOR"
+                    elif method_name == 'count':
                         if args:
                             return 1 if args[0] in base_val else 0
                         return 0

@@ -4,6 +4,7 @@ import json
 import base64
 import urllib.request
 from typing import Dict, Any, Tuple, Optional
+from datetime import datetime, timezone
 from cpp_interpreter import CPPInterpreter, Environment, ExecutionLimitError
 
 # --- Full Fixture Set ---
@@ -74,7 +75,7 @@ int test_pointer() {
         "args": [],
         "expected_return": 500,
         "expected_locals": {"head": "0x1000"},
-        "expected_heap": {"0x1000": {"val": 500, "next": "0x0000"}}
+        "expected_heap": {"0x1000": {"type": "Node", "fields": {"val": 500, "next": "0x0000"}}}
     },
     {
         "name": "Fixture 4: Fixed-Width 32-bit Signed Integer Overflow Wrapping",
@@ -307,8 +308,8 @@ def run_differential_tests():
     print("=" * 80)
     print("      CPP_INTERPRETER DIFFERENTIAL TEST HARNESS REPORT")
     print("=" * 80)
-    print("Validation Methodology : REAL COMPILED EXECUTION (Judge0 CE remote API, C++ GCC 14.1.0)")
-    print("Wandbox Fallback Notice: Wandbox API compile.json returned HTTP 500; auto-switched to Judge0 CE (GCC 14.1.0)\n")
+    print("Validation Methodology : REAL COMPILED EXECUTION (Wandbox API gcc-13.2.0 / Judge0 CE fallback)")
+    print("Execution Strategy     : Primary = Wandbox API (GCC 13.2.0); Fallback = Judge0 CE (GCC 14.1.0)\n")
 
     total_fixtures = len(FIXTURES)
     passed_fixtures = 0
@@ -355,6 +356,7 @@ def run_differential_tests():
         remote_ok, real_return, provider_name, raw_req, raw_resp = run_remote_cpp(fix["code"], fix["entry_function"])
 
         # Print Raw Request and Response for Every Fixture
+        print(f"EXECUTION_TIMESTAMP_UTC: {datetime.now(timezone.utc).isoformat()}")
         print("RAW API REQUEST PAYLOAD:")
         print(json.dumps(raw_req, indent=2))
         print("RAW API RESPONSE JSON:")

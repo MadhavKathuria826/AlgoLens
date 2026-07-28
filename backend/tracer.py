@@ -381,7 +381,7 @@ class _heapq_poly:
         def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
             if name == "heapq":
                 return heapq_globals["_heapq_poly"]
-            return __builtins__["__import__"](name, globals, locals, fromlist, level)
+            raise ImportError(f"Importing module '{name}' is strictly forbidden in the sandbox.")
 
         safe_builtins = {
             "__build_class__": __builtins__["__build_class__"],
@@ -393,6 +393,7 @@ class _heapq_poly:
             "TypeError": TypeError, "super": super, "isinstance": isinstance,
             "staticmethod": staticmethod, "classmethod": classmethod,
             "dict": dict, "tuple": tuple, "set": set, "frozenset": frozenset,
+            "bytearray": bytearray, "bytes": bytes, "MemoryError": MemoryError, "OverflowError": OverflowError,
             "enumerate": enumerate, "zip": zip, "map": map, "filter": filter,
             "sorted": sorted, "reversed": reversed, "any": any, "all": all,
             "next": next, "iter": iter, "divmod": divmod, "pow": pow,
@@ -482,10 +483,11 @@ class _heapq_poly:
             exec(code, safe_globals, safe_globals)
         except Exception as e:
             self.step_counter += 1
+            err_msg = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
             self.steps.append(Step(
                 step_number=self.step_counter,
                 line_number=0,
-                visualizations=[VisualizationData(type='Error', details={'msg': str(e)})],
+                visualizations=[VisualizationData(type='Error', details={'msg': err_msg})],
                 event_type='error'
             ))
         finally:
