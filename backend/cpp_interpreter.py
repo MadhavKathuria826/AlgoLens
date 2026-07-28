@@ -80,6 +80,19 @@ def get_pq_sort_key(item: Any) -> Any:
     else:
         return str(item)
 
+def get_node_spelling(node: Any) -> str:
+    """Recursively retrieves non-empty spelling identifier from an AST cursor."""
+    if not node:
+        return ""
+    if hasattr(node, 'spelling') and node.spelling:
+        return node.spelling
+    if hasattr(node, 'get_children'):
+        for c in node.get_children():
+            s = get_node_spelling(c)
+            if s:
+                return s
+    return ""
+
 # --- Environment & Heap Model ---
 
 class Heap:
@@ -440,9 +453,9 @@ class CPPInterpreter:
 
         # Variable reference
         elif kind == CursorKind.DECL_REF_EXPR:
-            var_name = curr.spelling
-            if var_name in ("nullptr", "NULL"):
-                return "0x0000"
+            var_name = curr.spelling or get_node_spelling(curr)
+            if not var_name or var_name in ("nullptr", "NULL", "std"):
+                return None
             found, val = self.env.current_scope.lookup(var_name)
             if found:
                 return val
@@ -550,7 +563,15 @@ class CPPInterpreter:
                 is_postfix = tokens[-1] in ('++', '--') if len(tokens) > 1 else False
                 return old_val if is_postfix else new_val
             elif op == '*':
-                addr = self.eval_expr(children[0])
+                child = children[0]
+                val = self.eval_expr(child)
+                if isinstance(val, str) and (val.startswith("ITER_VAL_") or val.startswith("ITER_KEY_")):
+                    raw_v = val.replace("ITER_VAL_", "").replace("ITER_KEY_", "")
+                    try:
+                        return int(raw_v)
+                    except ValueError:
+                        return raw_v
+                addr = val
                 heap_obj = self.env.heap.get(addr)
                 if heap_obj is not None:
                     return heap_obj
@@ -642,26 +663,34 @@ class CPPInterpreter:
                 return None
 
             member_ref_node = find_member_ref(children[0]) if children else None
+            method_name = ""
+            var_name = ""
+            base_val = None
 
-            # Vector / std member call (e.g. vec.push_back(val), vec.pop_back(), ptr->size())
             if member_ref_node:
                 m_children = list(member_ref_node.get_children())
                 m_tokens = [t.spelling for t in member_ref_node.get_tokens()]
                 method_name = member_ref_node.spelling or (m_tokens[-1] if m_tokens else "")
+                var_name = get_node_spelling(m_children[0]) if m_children else (m_tokens[0] if m_tokens else "")
                 base_val = self.eval_expr(m_children[0]) if m_children else None
 
-                # Fallback: if base_val is None, look up container variable from first token
-                if base_val is None and m_tokens:
-                    var_name = m_tokens[0]
+            if base_val is None and children:
+                c_tokens = [t.spelling for t in children[0].get_tokens()]
+                if '.' in c_tokens or '->' in c_tokens:
+                    var_name = c_tokens[0]
+                    method_name = c_tokens[-1]
                     found, val = self.env.current_scope.lookup(var_name)
                     if found:
                         base_val = val
-                        if var_name in self.container_types:
-                            pass
+                        member_ref_node = children[0]
+
+            if member_ref_node or base_val is not None:
                 args = [self.eval_expr(c) for c in children[1:]]
+                if args and (args[0] is base_val or args[0] == base_val):
+                    args = args[1:]
 
                 if isinstance(base_val, list):
-                    var_name = m_tokens[0] if m_tokens else ""
+                    var_name = var_name or (m_tokens[0] if m_tokens else "")
                     c_type = self.container_types.get(var_name)
 
                     if method_name == 'size':
@@ -723,6 +752,8 @@ class CPPInterpreter:
                         if args:
                             if isinstance(args[0], (tuple, list)) and len(args[0]) == 2:
                                 base_val[args[0][0]] = args[0][1]
+                            elif isinstance(args[0], dict) and "first" in args[0] and "second" in args[0]:
+                                base_val[args[0]["first"]] = args[0]["second"]
                             elif len(args) >= 2:
                                 base_val[args[0]] = args[1]
                         return None
@@ -745,9 +776,12 @@ class CPPInterpreter:
                     elif method_name == 'empty':
                         return len(base_val) == 0
 
-            # Pair constructor calls
+                if var_name and base_val is not None:
+                    self.env.current_scope.assign_var(var_name, base_val)
+
             if func_name in ('make_pair', 'std::make_pair', 'pair', 'std::pair') or 'pair' in func_name.lower():
-                args = [self.eval_expr(c) for c in children[1:] if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
+                arg_nodes = [c for c in children if get_node_spelling(c) not in ('make_pair', 'std::make_pair', 'pair', 'std::pair', 'std', '') and c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.OVERLOADED_DECL_REF)]
+                args = [self.eval_expr(c) for c in arg_nodes]
                 first_val = args[0] if len(args) > 0 else 0
                 second_val = args[1] if len(args) > 1 else 0
                 return {"first": first_val, "second": second_val}
@@ -846,13 +880,18 @@ class CPPInterpreter:
                     base_obj[field_name] = rhs_val
                     return rhs_val
 
-        # 3. Array / Vector element assignment: arr[i] = rhs
+        # 3. Array / Vector / Map element assignment: arr[i] = rhs or m["key"] = rhs
         elif lhs_curr.kind in (CursorKind.ARRAY_SUBSCRIPT_EXPR, CursorKind.CALL_EXPR):
             children = list(lhs_curr.get_children())
             arr_val = self.eval_expr(children[0])
-            idx_val = self.eval_expr(children[1] if lhs_curr.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR else children[2])
-            arr_val[idx_val] = rhs_val
-            return rhs_val
+            if isinstance(arr_val, dict):
+                key_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
+                arr_val[key_val] = rhs_val
+                return rhs_val
+            elif isinstance(arr_val, list):
+                idx_val = self.eval_expr(children[1] if lhs_curr.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR else (children[2] if len(children) >= 3 else children[1]))
+                arr_val[idx_val] = rhs_val
+                return rhs_val
 
         raise InterpreterError(f"Unsupported LHS assignment target: {lhs_curr.kind}")
 

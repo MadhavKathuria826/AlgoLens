@@ -219,6 +219,72 @@ int test_infinite_recursion() {
         "args": [],
         "expect_cap_error": True,
         "expected_error_keyword": "recursion depth"
+    },
+    {
+        "name": "Fixture 12: std::pair Construction & Field Mutation",
+        "code": """
+int test_pair() {
+    std::pair<int, int> p = std::make_pair(10, 20);
+    p.first = p.first + 5;
+    p.second = p.second * 2;
+    return p.first + p.second;
+}
+""",
+        "entry_function": "test_pair",
+        "args": [],
+        "expected_return": 55
+    },
+    {
+        "name": "Fixture 13: std::priority_queue Max-Heap Default Behavior",
+        "code": """
+int test_pq_max() {
+    std::priority_queue<int> pq;
+    pq.push(10);
+    pq.push(30);
+    pq.push(20);
+    int top1 = pq.top();
+    pq.pop();
+    int top2 = pq.top();
+    return top1 * 100 + top2;
+}
+""",
+        "entry_function": "test_pq_max",
+        "args": [],
+        "expected_return": 3020
+    },
+    {
+        "name": "Fixture 14: std::priority_queue Min-Heap (greater<T> Comparator)",
+        "code": """
+int test_pq_min() {
+    std::priority_queue<int, std::vector<int>, std::greater<int>> pq;
+    pq.push(30);
+    pq.push(10);
+    pq.push(20);
+    int top1 = pq.top();
+    pq.pop();
+    int top2 = pq.top();
+    return top1 * 100 + top2;
+}
+""",
+        "entry_function": "test_pq_min",
+        "args": [],
+        "expected_return": 1020
+    },
+    {
+        "name": "Fixture 15: std::priority_queue with std::pair (Dijkstra Pattern)",
+        "code": """
+int test_pq_pair() {
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<std::pair<int, int>>> pq;
+    pq.push(std::make_pair(5, 101));
+    pq.push(std::make_pair(1, 102));
+    pq.push(std::make_pair(3, 103));
+    std::pair<int, int> top_p = pq.top();
+    return top_p.first * 1000 + top_p.second;
+}
+""",
+        "entry_function": "test_pq_pair",
+        "args": [],
+        "expected_return": 1102
     }
 ]
 
@@ -234,6 +300,9 @@ def run_remote_cpp(code: str, entry_func: str) -> Tuple[bool, Any, str, Dict[str
     wrapper_code = f"""#include <iostream>
 #include <vector>
 #include <string>
+#include <queue>
+#include <utility>
+#include <functional>
 
 {code}
 
@@ -247,7 +316,8 @@ int main() {{
     # 1. Try Wandbox API first
     wandbox_payload = {
         "compiler": "gcc-13.2.0",
-        "code": wrapper_code
+        "code": wrapper_code,
+        "save": True
     }
     try:
         req = urllib.request.Request(
