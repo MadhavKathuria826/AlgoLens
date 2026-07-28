@@ -67,6 +67,19 @@ def is_pointer_type(type_str: str, val: Any = None) -> bool:
         return True
     return False
 
+def get_pq_sort_key(item: Any) -> Any:
+    """Extracts a sortable key for primitives, pairs {"first": x, "second": y}, and tuples."""
+    if isinstance(item, dict) and "first" in item and "second" in item:
+        f = get_pq_sort_key(item["first"])
+        s = get_pq_sort_key(item["second"])
+        return (f, s)
+    elif isinstance(item, (list, tuple)):
+        return tuple(get_pq_sort_key(x) for x in item)
+    elif isinstance(item, (int, float, str, bool)):
+        return item
+    else:
+        return str(item)
+
 # --- Environment & Heap Model ---
 
 class Heap:
@@ -278,13 +291,19 @@ class CPPInterpreter:
                             'obj_id': f"cpp_stack_{k}"
                         }
                     ))
-                elif c_type == 'queue':
+                elif c_type in ('priority_queue', 'priority_queue_min'):
+                    formatted_heap = []
+                    for item in v:
+                        if isinstance(item, dict) and "first" in item and "second" in item:
+                            formatted_heap.append(f"({item['first']}, {item['second']})")
+                        else:
+                            formatted_heap.append(item)
                     visualizations.append(VisualizationData(
-                        type='Queue',
+                        type='Heap',
                         details={
                             'name': k,
-                            'value': list(v),
-                            'obj_id': f"cpp_queue_{k}"
+                            'value': formatted_heap,
+                            'obj_id': f"cpp_heap_{k}"
                         }
                     ))
                 else:
@@ -347,9 +366,10 @@ class CPPInterpreter:
                                 fields[f_name] = None
                     self.env.struct_definitions[struct_name] = fields
             elif c.kind in (CursorKind.FUNCTION_DECL, CursorKind.CXX_METHOD):
-                func_name = c.spelling
-                if func_name:
-                    self.env.function_cursors[func_name] = c
+                if c.location.file and c.location.file.name == 'test.cpp' and c.extent.start.line > self.header_lines_count:
+                    func_name = c.spelling
+                    if func_name:
+                        self.env.function_cursors[func_name] = c
             for child in c.get_children():
                 visit(child)
 
@@ -540,8 +560,8 @@ class CPPInterpreter:
         elif kind == CursorKind.MEMBER_REF_EXPR:
             children = list(curr.get_children())
             base_node = children[0]
-            field_name = curr.spelling
             tokens = [t.spelling for t in curr.get_tokens()]
+            field_name = curr.spelling or (tokens[-1] if tokens else "")
             is_arrow = '->' in tokens
 
             if is_arrow:
@@ -584,15 +604,26 @@ class CPPInterpreter:
 
         # Function / Method calls
         elif kind == CursorKind.CALL_EXPR:
-            func_name = curr.spelling
             children = list(curr.get_children())
+            while len(children) == 1 and children[0].kind in (CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR) and list(children[0].get_children()):
+                sub = list(children[0].get_children())[0]
+                if sub.kind == CursorKind.CALL_EXPR:
+                    curr = sub
+                    children = list(curr.get_children())
+                else:
+                    break
+            func_name = curr.spelling
             tokens = [t.spelling for t in curr.get_tokens()]
 
             # Resolve function name from first child if empty
             if not func_name and children:
-                first_child = self.unwrap(children[0])
-                if first_child.kind == CursorKind.DECL_REF_EXPR:
-                    func_name = first_child.spelling
+                fc = children[0]
+                while fc and fc.kind in (CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR):
+                    ch = list(fc.get_children())
+                    if ch: fc = ch[0]
+                    else: break
+                tokens = [t.spelling for t in fc.get_tokens()]
+                func_name = fc.spelling or (tokens[-1] if tokens else "")
 
             if func_name == 'operator[]' or (children and any(c.spelling == 'operator[]' for c in children)):
                 arr_val = self.eval_expr(children[0])
@@ -630,22 +661,31 @@ class CPPInterpreter:
                 args = [self.eval_expr(c) for c in children[1:]]
 
                 if isinstance(base_val, list):
+                    var_name = m_tokens[0] if m_tokens else ""
+                    c_type = self.container_types.get(var_name)
+
                     if method_name == 'size':
                         return len(base_val)
                     elif method_name in ('push', 'push_back'):
                         if args:
-                            base_val.append(args[0])
+                            val_to_push = args[0]
+                            if c_type in ('priority_queue', 'priority_queue_min'):
+                                base_val.append(val_to_push)
+                                is_min = (c_type == 'priority_queue_min')
+                                base_val.sort(key=get_pq_sort_key, reverse=not is_min)
+                            else:
+                                base_val.append(val_to_push)
                         return None
                     elif method_name in ('pop', 'pop_back'):
                         if base_val:
-                            var_name = self.unwrap(m_children[0]).spelling if m_children else ""
-                            c_type = self.container_types.get(var_name)
-                            if c_type == 'queue':
+                            if c_type in ('queue', 'priority_queue', 'priority_queue_min'):
                                 base_val.pop(0)
                             else:
                                 base_val.pop()
                         return None
                     elif method_name == 'top':
+                        if c_type in ('priority_queue', 'priority_queue_min'):
+                            return base_val[0] if base_val else None
                         return base_val[-1] if base_val else None
                     elif method_name == 'front':
                         return base_val[0] if base_val else None
@@ -705,9 +745,16 @@ class CPPInterpreter:
                     elif method_name == 'empty':
                         return len(base_val) == 0
 
+            # Pair constructor calls
+            if func_name in ('make_pair', 'std::make_pair', 'pair', 'std::pair') or 'pair' in func_name.lower():
+                args = [self.eval_expr(c) for c in children[1:] if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
+                first_val = args[0] if len(args) > 0 else 0
+                second_val = args[1] if len(args) > 1 else 0
+                return {"first": first_val, "second": second_val}
+
             # Container constructor calls
             type_spelling = curr.type.spelling.lower() if curr.type else ""
-            if func_name in ('vector', 'stack', 'queue', 'set', 'unordered_set') or any(t in type_spelling for t in ('vector', 'stack', 'queue', 'set')):
+            if func_name in ('vector', 'stack', 'queue', 'priority_queue', 'set', 'unordered_set') or any(t in type_spelling for t in ('vector', 'stack', 'queue', 'priority_queue', 'set')):
                 return []
             if func_name in ('map', 'unordered_map') or 'map' in type_spelling:
                 return {}
@@ -747,9 +794,15 @@ class CPPInterpreter:
                 args = [self.eval_expr(c) for c in arg_nodes]
                 return self.call_function(func_cursor, args)
 
+            return None
+
         elif kind == CursorKind.INIT_LIST_EXPR:
             children = list(curr.get_children())
-            return [self.eval_expr(c) for c in children]
+            items = [self.eval_expr(c) for c in children]
+            type_spelling = (curr.type.spelling if curr.type else "").lower()
+            if 'pair' in type_spelling or len(items) == 2:
+                return {"first": items[0], "second": items[1]}
+            return items
 
         raise InterpreterError(f"Unsupported expression node kind: {kind} ({curr.spelling})")
 
@@ -779,8 +832,8 @@ class CPPInterpreter:
         elif lhs_curr.kind == CursorKind.MEMBER_REF_EXPR:
             children = list(lhs_curr.get_children())
             base_node = children[0]
-            field_name = lhs_curr.spelling
             tokens = [t.spelling for t in lhs_curr.get_tokens()]
+            field_name = lhs_curr.spelling or (tokens[-1] if tokens else "")
             is_arrow = '->' in tokens
 
             if is_arrow:
@@ -823,16 +876,21 @@ class CPPInterpreter:
                 if child.kind == CursorKind.VAR_DECL:
                     var_name = child.spelling
                     type_str = child.type.spelling
-                    children = [ch for ch in child.get_children() if ch.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
+                    children = [ch for ch in child.get_children() if not ch.kind.name.endswith('_REF')]
                     
                     if children:
                         init_val = self.eval_expr(children[0])
+                        if isinstance(init_val, list) and len(init_val) == 2 and 'pair<' in type_str.lower():
+                            init_val = {"first": init_val[0], "second": init_val[1]}
                     else:
+                        c_type = self.container_types.get(var_name)
                         if is_pointer_type(type_str):
                             init_val = "0x0000"
-                        elif any(t in type_str.lower() for t in ('vector', 'stack', 'queue', 'set')):
+                        elif 'pair<' in type_str.lower():
+                            init_val = {"first": 0, "second": 0}
+                        elif c_type in ('vector', 'stack', 'queue', 'priority_queue', 'priority_queue_min', 'set') or any(t in type_str.lower() for t in ('vector', 'stack', 'queue', 'priority_queue', 'set')):
                             init_val = []
-                        elif any(t in type_str.lower() for t in ('map', 'unordered_map')):
+                        elif c_type == 'map' or any(t in type_str.lower() for t in ('map', 'unordered_map')):
                             init_val = {}
                         elif type_str in self.env.struct_definitions:
                             init_val = copy.deepcopy(self.env.struct_definitions[type_str])

@@ -66,6 +66,23 @@ namespace std {
         int size();
         bool empty();
     };
+    template<typename T1, typename T2>
+    struct pair {
+        T1 first;
+        T2 second;
+    };
+    template<typename T1, typename T2>
+    pair<T1, T2> make_pair(const T1& x, const T2& y);
+    template<typename T>
+    struct greater {};
+    template<typename T, typename Container = vector<T>, typename Compare = less<T>>
+    struct priority_queue {
+        void push(const T& val);
+        void pop();
+        T& top();
+        bool empty();
+        int size();
+    };
     template<typename T>
     struct set {
         void insert(const T& val);
@@ -631,15 +648,21 @@ def classify_stl_containers(code: str) -> dict:
             if cursor.location.file and cursor.location.file.name == 'test.cpp':
                 var_name = cursor.spelling
                 type_spelling = cursor.type.spelling.lower()
-                if 'stack<' in type_spelling:
+                tokens_str = " ".join([t.spelling for t in cursor.get_tokens()]).lower()
+                if 'priority_queue' in type_spelling or 'priority_queue' in tokens_str:
+                    if 'greater' in type_spelling or 'greater' in tokens_str:
+                        container_types[var_name] = 'priority_queue_min'
+                    else:
+                        container_types[var_name] = 'priority_queue'
+                elif 'stack<' in type_spelling or 'stack<' in tokens_str or 'stack <' in tokens_str:
                     container_types[var_name] = 'stack'
-                elif 'queue<' in type_spelling:
+                elif 'queue<' in type_spelling or 'queue<' in tokens_str or 'queue <' in tokens_str:
                     container_types[var_name] = 'queue'
-                elif 'map<' in type_spelling or 'unordered_map<' in type_spelling:
+                elif 'map<' in type_spelling or 'map<' in tokens_str or 'map <' in tokens_str or 'unordered_map' in type_spelling:
                     container_types[var_name] = 'map'
-                elif 'set<' in type_spelling or 'unordered_set<' in type_spelling:
+                elif 'set<' in type_spelling or 'set<' in tokens_str or 'set <' in tokens_str or 'unordered_set' in type_spelling:
                     container_types[var_name] = 'set'
-                elif 'vector<' in type_spelling:
+                elif 'vector<' in type_spelling or 'vector<' in tokens_str or 'vector <' in tokens_str:
                     container_types[var_name] = 'vector'
 
         for child in cursor.get_children():
