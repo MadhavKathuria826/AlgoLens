@@ -84,12 +84,12 @@ def get_node_spelling(node: Any) -> str:
     """Recursively retrieves non-empty spelling identifier from an AST cursor."""
     if not node:
         return ""
-    if hasattr(node, 'spelling') and node.spelling:
+    if hasattr(node, 'spelling') and node.spelling and node.spelling != "std":
         return node.spelling
     if hasattr(node, 'get_children'):
         for c in node.get_children():
             s = get_node_spelling(c)
-            if s:
+            if s and s != "std":
                 return s
     return ""
 
@@ -403,6 +403,14 @@ class CPPInterpreter:
             if hasattr(CursorKind, name):
                 wrapper_kinds.add(getattr(CursorKind, name))
         if kind in wrapper_kinds or 'UNEXPOSED' in str(kind):
+            tokens_str = " ".join([t.spelling for t in curr.get_tokens()])
+            if 'make_pair' in tokens_str or 'pair' in tokens_str:
+                children = [c for c in curr.get_children() if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
+                arg_nodes = [c for c in children if get_node_spelling(c) not in ('make_pair', 'std::make_pair', 'pair', 'std::pair', 'std')]
+                args = [self.eval_expr(c) for c in arg_nodes if c is not None]
+                first_val = args[0] if len(args) > 0 else 0
+                second_val = args[1] if len(args) > 1 else 0
+                return {"first": first_val, "second": second_val}
             expr_children = [c for c in curr.get_children() if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF)]
             if expr_children:
                 return self.eval_expr(expr_children[0])
@@ -454,7 +462,7 @@ class CPPInterpreter:
         # Variable reference
         elif kind == CursorKind.DECL_REF_EXPR:
             var_name = curr.spelling or get_node_spelling(curr)
-            if not var_name or var_name in ("nullptr", "NULL", "std"):
+            if not var_name or var_name in ("nullptr", "NULL", "std", "make_pair", "std::make_pair"):
                 return None
             found, val = self.env.current_scope.lookup(var_name)
             if found:
@@ -639,12 +647,8 @@ class CPPInterpreter:
             # Resolve function name from first child if empty
             if not func_name and children:
                 fc = children[0]
-                while fc and fc.kind in (CursorKind.UNEXPOSED_EXPR, CursorKind.PAREN_EXPR):
-                    ch = list(fc.get_children())
-                    if ch: fc = ch[0]
-                    else: break
-                tokens = [t.spelling for t in fc.get_tokens()]
-                func_name = fc.spelling or (tokens[-1] if tokens else "")
+                c_toks = [t.spelling for t in fc.get_tokens() if t.spelling not in ('(', ')', ';', ',')]
+                func_name = fc.spelling or get_node_spelling(fc) or (c_toks[-1] if c_toks else "")
 
             if func_name == 'operator[]' or (children and any(c.spelling == 'operator[]' for c in children)):
                 arr_val = self.eval_expr(children[0])
@@ -756,10 +760,14 @@ class CPPInterpreter:
                                 base_val[args[0]["first"]] = args[0]["second"]
                             elif len(args) >= 2:
                                 base_val[args[0]] = args[1]
+                        if var_name:
+                            self.env.current_scope.assign(var_name, base_val)
                         return None
                     elif method_name == 'erase':
                         if args:
                             base_val.pop(args[0], None)
+                        if var_name:
+                            self.env.current_scope.assign(var_name, base_val)
                         return None
                     elif method_name == 'find':
                         if args and args[0] in base_val:
@@ -780,8 +788,8 @@ class CPPInterpreter:
                     self.env.current_scope.assign_var(var_name, base_val)
 
             if func_name in ('make_pair', 'std::make_pair', 'pair', 'std::pair') or 'pair' in func_name.lower():
-                arg_nodes = [c for c in children if get_node_spelling(c) not in ('make_pair', 'std::make_pair', 'pair', 'std::pair', 'std', '') and c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.OVERLOADED_DECL_REF)]
-                args = [self.eval_expr(c) for c in arg_nodes]
+                arg_nodes = [c for c in children if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.OVERLOADED_DECL_REF) and get_node_spelling(c) not in ('make_pair', 'std::make_pair', 'pair', 'std::pair', 'std')]
+                args = [self.eval_expr(c) for c in arg_nodes if c is not None]
                 first_val = args[0] if len(args) > 0 else 0
                 second_val = args[1] if len(args) > 1 else 0
                 return {"first": first_val, "second": second_val}
