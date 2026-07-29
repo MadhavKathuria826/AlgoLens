@@ -17,6 +17,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/version")
+def get_version():
+    import os, subprocess
+    commit_sha = os.getenv("RENDER_GIT_COMMIT", "")
+    if not commit_sha:
+        try:
+            commit_sha = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
+        except Exception as e:
+            commit_sha = f"unknown: {e}"
+    return {"commit": commit_sha, "build": "5b128dd-diagnostic"}
+
 @app.post("/api/execute", response_model=CodeExecutionResponse)
 def execute_code(request: CodeExecutionRequest):
     if (request.language or '').lower() in ('cpp', 'c++'):
