@@ -25,12 +25,27 @@ configure_libclang()
 
 DEFAULT_HEADER_MOCKS = """
 namespace std {
+    template<typename T> struct less {};
+    template<typename T> struct greater {};
+    template<typename T>
+    class initializer_list {
+    public:
+        const T* __begin;
+        unsigned long __size;
+        initializer_list() : __begin(0), __size(0) {}
+    };
+
     struct string {};
     template<typename T>
     struct vector {
+        vector() {}
+        vector(initializer_list<T> l) {}
+        T* begin();
+        T* end();
         T& operator[](int idx);
         int size();
         void push_back(const T& val);
+        void pop_back();
         bool empty();
     };
     template<typename T>
@@ -50,22 +65,6 @@ namespace std {
         bool empty();
         int size();
     };
-    template<typename K, typename V>
-    struct map {
-        V& operator[](const K& key);
-        int count(const K& key);
-        void erase(const K& key);
-        int size();
-        bool empty();
-    };
-    template<typename K, typename V>
-    struct unordered_map {
-        V& operator[](const K& key);
-        int count(const K& key);
-        void erase(const K& key);
-        int size();
-        bool empty();
-    };
     template<typename T1, typename T2>
     struct pair {
         T1 first;
@@ -73,8 +72,32 @@ namespace std {
     };
     template<typename T1, typename T2>
     pair<T1, T2> make_pair(const T1& x, const T2& y);
-    template<typename T>
-    struct greater {};
+    template<typename K, typename V>
+    struct map {
+        map() {}
+        map(initializer_list<pair<K, V>> l) {}
+        V& operator[](const K& key);
+        int count(const K& key);
+        void erase(const K& key);
+        int size();
+        bool empty();
+        pair<K, V>* begin();
+        pair<K, V>* end();
+        pair<K, V>* find(const K& key);
+    };
+    template<typename K, typename V>
+    struct unordered_map {
+        unordered_map() {}
+        unordered_map(initializer_list<pair<K, V>> l) {}
+        V& operator[](const K& key);
+        int count(const K& key);
+        void erase(const K& key);
+        int size();
+        bool empty();
+        pair<K, V>* begin();
+        pair<K, V>* end();
+        pair<K, V>* find(const K& key);
+    };
     template<typename T, typename Container = vector<T>, typename Compare = less<T>>
     struct priority_queue {
         void push(const T& val);
@@ -85,26 +108,38 @@ namespace std {
     };
     template<typename T>
     struct set {
+        set() {}
+        set(initializer_list<T> l) {}
         void insert(const T& val);
         void erase(const T& val);
         int count(const T& val);
         int size();
         bool empty();
+        T* begin();
+        T* end();
+        T* find(const T& val);
     };
     template<typename T>
     struct unordered_set {
+        unordered_set() {}
+        unordered_set(initializer_list<T> l) {}
         void insert(const T& val);
         void erase(const T& val);
         int count(const T& val);
         int size();
         bool empty();
+        T* begin();
+        T* end();
+        T* find(const T& val);
     };
 }
 """
 
 def parse_cpp_ast(code: str, use_header_mocks: bool = True):
+    import re
     index = Index.create()
-    full_code = (DEFAULT_HEADER_MOCKS + "\n" + code) if use_header_mocks else code
+    clean_code = re.sub(r'#include\s*([<"][^>"]+[>"])', r'// #include \1', code) if use_header_mocks else code
+    full_code = (DEFAULT_HEADER_MOCKS + "\n" + clean_code) if use_header_mocks else code
     tu = index.parse('test.cpp', unsaved_files=[('test.cpp', full_code)])
     header_lines_count = len(DEFAULT_HEADER_MOCKS.splitlines()) if use_header_mocks else 0
     return tu, header_lines_count

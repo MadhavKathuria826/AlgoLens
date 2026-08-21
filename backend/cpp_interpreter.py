@@ -602,6 +602,8 @@ class CPPInterpreter:
                     return base_obj[field_name]
                 elif isinstance(base_obj, list) and field_name == 'size':
                     return len(base_obj)
+                elif field_name in ('find', 'begin', 'end', 'cbegin', 'cend', 'size', 'empty', 'count', 'erase', 'insert', 'push_back', 'pop_back', 'push', 'pop', 'top', 'front', 'back'):
+                    return f"METHOD_{field_name}"
                 raise InterpreterError(f"Invalid member access '{field_name}'")
 
         # Subscripting arr[i]
@@ -797,8 +799,18 @@ class CPPInterpreter:
             # Container constructor calls
             type_spelling = curr.type.spelling.lower() if curr.type else ""
             if func_name in ('vector', 'stack', 'queue', 'priority_queue', 'set', 'unordered_set') or any(t in type_spelling for t in ('vector', 'stack', 'queue', 'priority_queue', 'set')):
+                init_args = [self.eval_expr(c) for c in children if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.DECL_REF_EXPR, CursorKind.MEMBER_REF_EXPR)]
+                init_args = [a for a in init_args if a is not None]
+                if init_args:
+                    if len(init_args) == 1 and isinstance(init_args[0], list):
+                        return init_args[0]
+                    return init_args
                 return []
             if func_name in ('map', 'unordered_map') or 'map' in type_spelling:
+                init_args = [self.eval_expr(c) for c in children if c.kind not in (CursorKind.TYPE_REF, CursorKind.NAMESPACE_REF, CursorKind.TEMPLATE_REF, CursorKind.DECL_REF_EXPR, CursorKind.MEMBER_REF_EXPR)]
+                init_args = [a for a in init_args if a is not None]
+                if init_args and len(init_args) == 1 and isinstance(init_args[0], dict):
+                    return init_args[0]
                 return {}
 
             # Struct constructor call: e.g. Point() or Node()
@@ -992,6 +1004,43 @@ class CPPInterpreter:
 
                     if inc_node:
                         self.eval_expr(inc_node)
+            finally:
+                self.env.pop_scope()
+
+        elif kind == CursorKind.CXX_FOR_RANGE_STMT:
+            children = list(curr.get_children())
+            var_node = children[0] if len(children) > 0 else None
+            range_node = children[1] if len(children) > 1 else None
+            body_node = children[2] if len(children) > 2 else None
+
+            var_name = var_node.spelling if var_node else "x"
+            var_type = var_node.type.spelling if var_node and var_node.type else "int"
+
+            container_val = self.eval_expr(range_node) if range_node else []
+            if not isinstance(container_val, (list, dict, tuple)):
+                container_val = []
+
+            elements = list(container_val.items()) if isinstance(container_val, dict) else list(container_val)
+
+            self.env.push_scope("for_range_loop")
+            try:
+                iterations = 0
+                for elem in elements:
+                    if iterations >= self.max_loop_iterations:
+                        raise ExecutionLimitError(f"Maximum loop iterations ({self.max_loop_iterations}) exceeded")
+                    iterations += 1
+
+                    elem_val = {"first": elem[0], "second": elem[1]} if isinstance(elem, tuple) and len(elem) == 2 else elem
+                    self.env.current_scope.declare(var_name, elem_val, var_type)
+                    self.emit_step(line_no)
+
+                    try:
+                        if body_node:
+                            self.exec_stmt(body_node)
+                    except ContinueException:
+                        pass
+                    except BreakException:
+                        break
             finally:
                 self.env.pop_scope()
 
