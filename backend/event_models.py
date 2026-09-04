@@ -130,7 +130,9 @@ class ContainerOpPayload(BaseModel):
     op: str    # "PUSH", "POP", "SET_INDEX", "SWAP", "INSERT", "ERASE", "CLEAR"
     indices: Optional[List[int]] = None
     values: Optional[List[UniversalValue]] = None
+    old_values: Optional[List[UniversalValue]] = None
     meta: Optional[Dict[str, Any]] = None
+    old_meta: Optional[Dict[str, Any]] = None
 
 class TraceTruncatedPayload(BaseModel):
     reason: str
@@ -148,3 +150,4 @@ class AlgoLensEvent(BaseModel):
     payload: Dict[str, Any]
     debug_meta: Optional[Dict[str, Any]] = None
     ts: Optional[float] = None
+    prev_line: Optional[int] = None

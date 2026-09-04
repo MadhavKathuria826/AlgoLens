@@ -4,6 +4,7 @@ Hooks into execution without altering execution logic to emit AlgoLens Event Pro
 Maps host/interpreter memory addresses to synthetic universal object IDs (obj_N).
 """
 
+import copy
 from typing import Dict, Any, List, Optional
 from event_models import (
     AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, Uninitialized,
@@ -38,10 +39,16 @@ class EventObserver:
         self.addr_to_obj_id: Dict[str, str] = {}
         self.var_to_binding_id: Dict[str, str] = {}
 
+        # History tracking for event reversibility
+        self.binding_values: Dict[str, Any] = {}
+        self.object_fields: Dict[str, Dict[str, Any]] = {}
+        self.container_history: Dict[str, Any] = {}
+
         # Current frame and scope tracking
         self.frame_stack: List[str] = []
         self.scope_stack: List[str] = []
         self.current_line = 0
+        self.last_emitted_line = 0
 
     @property
     def current_frame_id(self) -> str:
@@ -82,9 +89,11 @@ class EventObserver:
         return PrimitiveValue(type_name=type_str or "unknown", value=str(val))
 
     def emit(self, event_type: str, payload: Dict[str, Any], debug_meta: Optional[Dict[str, Any]] = None):
+        prev_l = self.last_emitted_line
         ev = AlgoLensEvent(
             seq=self.seq_counter,
             line=self.current_line,
+            prev_line=prev_l,
             event_type=event_type,
             frame_id=self.current_frame_id,
             scope_id=self.current_scope_id,
@@ -93,6 +102,7 @@ class EventObserver:
         )
         self.events.append(ev)
         self.seq_counter += 1
+        self.last_emitted_line = self.current_line
 
     # --- Lifecycle Hooks ---
 
@@ -161,6 +171,7 @@ class EventObserver:
         self.binding_counter += 1
         b_id = make_binding_id(self.binding_counter)
         self.var_to_binding_id[name] = b_id
+        self.binding_values[name] = val
 
         self.emit("VAR_DECLARE", {
             "binding_id": b_id,
@@ -171,15 +182,20 @@ class EventObserver:
 
     def on_var_write(self, name: str, val: Any, type_str: str = ""):
         b_id = self.var_to_binding_id.get(name) or make_binding_id(self.binding_counter)
+        old_val = self.binding_values.get(name)
+        self.binding_values[name] = val
+        old_val_dump = dump_val(self.to_universal_value(old_val, type_str)) if old_val is not None else {"kind": "uninitialized"}
+
         self.emit("VAR_WRITE", {
             "binding_id": b_id,
             "name": name,
-            "old_value": {"kind": "uninitialized"},
+            "old_value": old_val_dump,
             "new_value": dump_val(self.to_universal_value(val, type_str))
         })
 
     def on_object_allocate(self, native_addr: str, type_name: str, fields: Dict[str, Any] = None):
         obj_id = self.get_or_create_obj_id(native_addr)
+        self.object_fields[obj_id] = copy.deepcopy(fields) if fields else {}
         parsed_fields = {}
         if fields:
             for k, v in fields.items():
@@ -193,22 +209,37 @@ class EventObserver:
 
     def on_object_mutate(self, native_addr: str, field: str, new_val: Any):
         obj_id = self.get_or_create_obj_id(native_addr)
+        old_val = self.object_fields.get(obj_id, {}).get(field)
+        self.object_fields.setdefault(obj_id, {})[field] = new_val
+        old_val_dump = dump_val(self.to_universal_value(old_val)) if old_val is not None else {"kind": "uninitialized"}
+
         self.emit("OBJECT_MUTATE", {
             "object_id": obj_id,
             "field": field,
-            "old_value": {"kind": "uninitialized"},
+            "old_value": old_val_dump,
             "new_value": dump_val(self.to_universal_value(new_val))
         }, debug_meta={"native_addr": native_addr})
 
     def on_container_op(self, c_id: str, kind: str, op: str, indices: List[int] = None, values: List[Any] = None, meta: Dict[str, Any] = None):
+        old_history = self.container_history.get(c_id)
+        if values is not None:
+            self.container_history[c_id] = copy.deepcopy(values)
+        elif meta is not None:
+            self.container_history[c_id] = copy.deepcopy(meta)
+
         parsed_vals = [dump_val(self.to_universal_value(v)) for v in values] if values is not None else None
+        old_parsed_vals = [dump_val(self.to_universal_value(v)) for v in old_history] if isinstance(old_history, list) else None
+        old_meta = copy.deepcopy(old_history) if isinstance(old_history, dict) else None
+
         self.emit("CONTAINER_OP", {
             "container_id": c_id,
             "kind": kind,
             "op": op,
             "indices": indices,
             "values": parsed_vals,
-            "meta": meta
+            "old_values": old_parsed_vals,
+            "meta": meta,
+            "old_meta": old_meta
         })
 
     def on_step_line(self, line_number: int):
