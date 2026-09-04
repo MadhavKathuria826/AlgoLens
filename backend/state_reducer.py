@@ -143,7 +143,22 @@ class UniversalStateReducer:
             if state.call_stack:
                 popped_id = state.call_stack.pop()
                 if popped_id in state.frames and "return_value" in payload:
-                    state.frames[popped_id].return_value = payload["return_value"]
+                    raw_ret = payload["return_value"]
+                    if isinstance(raw_ret, dict) and "kind" in raw_ret:
+                        k = raw_ret["kind"]
+                        if k == "primitive":
+                            ret_u = PrimitiveValue(**raw_ret)
+                        elif k == "object_ref":
+                            ret_u = ObjectRef(**raw_ret)
+                        elif k == "null_ref":
+                            ret_u = NullRef()
+                        else:
+                            ret_u = Uninitialized()
+                    elif isinstance(raw_ret, UniversalValue):
+                        ret_u = raw_ret
+                    else:
+                        ret_u = PrimitiveValue(type_name="unknown", value=raw_ret)
+                    state.frames[popped_id].return_value = ret_u
                 state.active_frame_id = state.call_stack[-1] if state.call_stack else None
 
         elif ev_type == "SCOPE_ENTER":
@@ -306,5 +321,135 @@ class UniversalStateReducer:
                 meta = payload.get("meta")
                 if meta is not None and isinstance(meta, dict):
                     c_state["elements"] = copy.deepcopy(meta)
+
+        return state
+
+    @staticmethod
+    def reduce_inverse(state: UniversalRuntimeState, event: AlgoLensEvent) -> UniversalRuntimeState:
+        ev_type = event.event_type
+        payload = event.payload
+        state.step_sequence = max(0, event.seq - 1)
+        if event.prev_line is not None:
+            state.current_line = event.prev_line
+
+        # 1. Variable Binding Inversion
+        if ev_type == "VAR_WRITE":
+            b_id = payload.get("binding_id")
+            name = payload.get("name")
+            old_raw = payload.get("old_value")
+            if isinstance(old_raw, dict):
+                k = old_raw.get("kind")
+                if k == "primitive":
+                    old_u = PrimitiveValue(**old_raw)
+                elif k == "object_ref":
+                    old_u = ObjectRef(**old_raw)
+                elif k == "null_ref":
+                    old_u = NullRef()
+                else:
+                    old_u = Uninitialized()
+            elif isinstance(old_raw, UniversalValue):
+                old_u = old_raw
+            else:
+                old_u = Uninitialized()
+
+            if b_id and b_id in state.bindings:
+                state.bindings[b_id].value = old_u
+            elif name:
+                vis = state.get_visible_bindings()
+                if name in vis:
+                    vis[name].value = old_u
+
+        elif ev_type == "VAR_DECLARE":
+            b_id = payload.get("binding_id")
+            name = payload.get("name")
+            if b_id and b_id in state.bindings:
+                b = state.bindings.pop(b_id)
+                scope = state.scopes.get(b.scope_id)
+                if scope and name in scope.binding_map:
+                    scope.binding_map.pop(name, None)
+            elif name:
+                scope = state.get_current_scope()
+                if scope and name in scope.binding_map:
+                    b_id = scope.binding_map.pop(name)
+                    state.bindings.pop(b_id, None)
+
+        # 2. Object Mutation Inversion
+        elif ev_type == "OBJECT_MUTATE":
+            obj_id = payload["object_id"]
+            field = payload["field"]
+            old_raw = payload.get("old_value")
+            if isinstance(old_raw, dict) and "kind" in old_raw:
+                old_u = ObjectRef(**old_raw) if old_raw["kind"] == "object_ref" else (NullRef() if old_raw["kind"] == "null_ref" else PrimitiveValue(**old_raw))
+            elif isinstance(old_raw, str) and (old_raw.startswith("obj_") or old_raw.startswith("0x")):
+                old_u = NullRef() if old_raw in ("0x0000", "nullptr", "NULL") else ObjectRef(object_id=old_raw)
+            else:
+                old_u = PrimitiveValue(type_name="unknown", value=old_raw)
+
+            if obj_id in state.heap:
+                state.heap[obj_id].fields[field] = old_u
+
+        elif ev_type == "OBJECT_ALLOCATE":
+            obj_id = payload["object_id"]
+            state.heap.pop(obj_id, None)
+
+        # 3. Container Operation Inversion
+        elif ev_type == "CONTAINER_OP":
+            c_id = payload["container_id"]
+            op = payload["op"]
+            if c_id in state.containers:
+                c_state = state.containers[c_id]
+                old_vals = payload.get("old_values")
+                old_meta = payload.get("old_meta")
+                if old_vals is not None:
+                    c_state["elements"] = []
+                    for v in old_vals:
+                        val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
+                        c_state["elements"].append(val_repr)
+                elif old_meta is not None and isinstance(old_meta, dict):
+                    c_state["elements"] = copy.deepcopy(old_meta)
+                elif op == "PUSH":
+                    count = len(payload.get("values") or [1])
+                    for _ in range(count):
+                        if c_state["elements"]:
+                            c_state["elements"].pop()
+                else:
+                    state.containers.pop(c_id, None)
+
+        # 4. Scope and Frame Inversion
+        elif ev_type == "SCOPE_ENTER":
+            frame = state.get_current_frame()
+            if frame and frame.active_scope_id in state.scopes:
+                curr_s = state.scopes[frame.active_scope_id]
+                if curr_s.parent_scope_id:
+                    frame.active_scope_id = curr_s.parent_scope_id
+                state.scopes.pop(event.scope_id, None)
+
+        elif ev_type == "SCOPE_EXIT":
+            frame = state.get_current_frame()
+            if frame and event.scope_id in state.scopes:
+                frame.active_scope_id = event.scope_id
+
+        elif ev_type == "FRAME_PUSH":
+            frame_id = payload.get("frame_id") or event.frame_id
+            if state.call_stack and state.call_stack[-1] == frame_id:
+                state.call_stack.pop()
+            state.frames.pop(frame_id, None)
+            state.active_frame_id = state.call_stack[-1] if state.call_stack else None
+
+        elif ev_type == "FRAME_POP":
+            frame_id = event.frame_id
+            if frame_id in state.frames:
+                state.call_stack.append(frame_id)
+                state.active_frame_id = frame_id
+                state.frames[frame_id].return_value = None
+
+        elif ev_type == "PROG_START":
+            frame_id = event.frame_id or "frame_0"
+            scope_id = event.scope_id or "scope_0"
+            state.frames.pop(frame_id, None)
+            state.scopes.pop(scope_id, None)
+            if state.call_stack and state.call_stack[-1] == frame_id:
+                state.call_stack.pop()
+            state.active_frame_id = state.call_stack[-1] if state.call_stack else None
 
         return state
