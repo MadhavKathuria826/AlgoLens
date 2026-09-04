@@ -114,11 +114,14 @@ def execute_code(request: CodeExecutionRequest):
     from avl_tracer import run_avl_tracer
     from rbt_classifier import classify_rbt
     from rbt_tracer import run_rbt_tracer
+    from trie_classifier import classify_trie
+    from trie_tracer import run_trie_tracer
     from dp_tracer import run_dp_tracer
     from dp_classifier import classify_tabulation, classify_memoization
     try:
         avl_res = classify_avl(request.code)
         rbt_res = classify_rbt(request.code)
+        trie_res = classify_trie(request.code)
         recurrence_relations = []
         try:
             tab_res = classify_tabulation(request.code)
@@ -134,6 +137,8 @@ def execute_code(request: CodeExecutionRequest):
             steps = run_avl_tracer(request.code)
         elif rbt_res["is_rbt"]:
             steps = run_rbt_tracer(request.code)
+        elif trie_res["is_trie"]:
+            steps = run_trie_tracer(request.code)
         else:
             steps = run_dp_tracer(request.code)
             if steps is None:

@@ -12,6 +12,7 @@ import TreeVisualizer from './visualizers/TreeVisualizer';
 import HeapVisualizer from './visualizers/HeapVisualizer';
 import Viewport from './Viewport';
 import DPVisualizer from './visualizers/DPVisualizer';
+import TrieVisualizer from './visualizers/TrieVisualizer';
 
 export default function VisualizationCanvas({ step, steps = [], currentStepIdx = 0, code, isFullscreen, onToggleFullscreen, recurrenceRelations = [] }: any) {
   if (!step) {
@@ -88,13 +89,15 @@ export default function VisualizationCanvas({ step, steps = [], currentStepIdx =
     v.type === 'Array' && activeLoopLine.includes(v.details.name)
   );
 
-  const hasTree = effectiveStep.isTreeAlgorithm || (effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && ('left' in effectiveStep.heap[k].fields || 'right' in effectiveStep.heap[k].fields)));
-  const hasLinkedList = effectiveStep.isLinkedListAlgorithm || (!hasTree && effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && 'next' in effectiveStep.heap[k].fields));
+  const hasTrie = effectiveStep.visualizations.some((v: any) => v.type === 'TRIE_METADATA');
+  const hasTree = !hasTrie && (effectiveStep.isTreeAlgorithm || (effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && ('left' in effectiveStep.heap[k].fields || 'right' in effectiveStep.heap[k].fields))));
+  const hasLinkedList = !hasTrie && (effectiveStep.isLinkedListAlgorithm || (!hasTree && effectiveStep.heap && Object.keys(effectiveStep.heap).some(k => effectiveStep.heap[k].fields && 'next' in effectiveStep.heap[k].fields)));
 
   return (
     <div className="visualization-canvas-root relative w-full h-full flex flex-col">
       <Viewport isFullscreen={isFullscreen} onToggleFullscreen={onToggleFullscreen}>
         <div className="visualization-content-root flex flex-col items-center justify-center gap-8 min-w-max p-8">
+          {hasTrie && <TrieVisualizer step={effectiveStep} />}
           {hasLinkedList && <LinkedListVisualizer heap={effectiveStep.heap} locals={activeLocals} />}
           {hasTree && <TreeVisualizer heap={effectiveStep.heap} locals={activeLocals} step={effectiveStep} />}
           {effectiveStep.visualizations.length === 0 && !hasTree && !hasLinkedList && (

@@ -161,6 +161,10 @@ class Tracer:
             def serialize(val):
                 if val is None: return "None"
                 if isinstance(val, (int, float, bool, str)): return str(val) if isinstance(val, bool) else val
+                if isinstance(val, dict):
+                    return {str(k): serialize(v) for k, v in val.items()}
+                if isinstance(val, (list, tuple, set)):
+                    return [serialize(v) for v in val]
                 if (hasattr(val, '__dict__') or hasattr(type(val), '__slots__')) and (
                     getattr(type(val), '__module__', '') == '__main__' or
                     type(val).__name__ in ('TreeNode', 'ListNode', 'LocalTreeNode', 'LocalListNode')
