@@ -903,14 +903,23 @@ class CPPInterpreter:
         # 3. Array / Vector / Map element assignment: arr[i] = rhs or m["key"] = rhs
         elif lhs_curr.kind in (CursorKind.ARRAY_SUBSCRIPT_EXPR, CursorKind.CALL_EXPR):
             children = list(lhs_curr.get_children())
-            arr_val = self.eval_expr(children[0])
+            arr_name = get_node_spelling(children[0])
+            found, arr_val = self.env.current_scope.lookup(arr_name) if arr_name else (False, None)
+            if not isinstance(arr_val, (list, dict)):
+                arr_val = []
             if isinstance(arr_val, dict):
                 key_val = self.eval_expr(children[2] if len(children) >= 3 else children[1])
                 arr_val[key_val] = rhs_val
+                if arr_name:
+                    self.env.current_scope.assign(arr_name, arr_val)
                 return rhs_val
             elif isinstance(arr_val, list):
                 idx_val = self.eval_expr(children[1] if lhs_curr.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR else (children[2] if len(children) >= 3 else children[1]))
+                while len(arr_val) <= idx_val:
+                    arr_val.append(0)
                 arr_val[idx_val] = rhs_val
+                if arr_name:
+                    self.env.current_scope.assign(arr_name, arr_val)
                 return rhs_val
 
         raise InterpreterError(f"Unsupported LHS assignment target: {lhs_curr.kind}")
@@ -951,6 +960,8 @@ class CPPInterpreter:
                             init_val = []
                         elif c_type == 'map' or any(t in type_str.lower() for t in ('map', 'unordered_map')):
                             init_val = {}
+                        elif '[' in type_str or 'array' in type_str.lower():
+                            init_val = []
                         elif type_str in self.env.struct_definitions:
                             init_val = copy.deepcopy(self.env.struct_definitions[type_str])
                         else:

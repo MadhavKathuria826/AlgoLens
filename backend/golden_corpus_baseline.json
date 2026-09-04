@@ -1,0 +1,290 @@
+{
+  "G01_basic_scalars": {
+    "step_count": 6,
+    "return_value": "42",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  "G02_assignments": {
+    "step_count": 5,
+    "return_value": "10",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "G03_arithmetic": {
+    "step_count": 5,
+    "return_value": "16",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "G04_integer_overflow": {
+    "step_count": 4,
+    "return_value": "-32768",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "G05_division_modulo": {
+    "step_count": 4,
+    "return_value": "-4",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "G06_nested_scopes": {
+    "step_count": 6,
+    "return_value": "11",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      9
+    ]
+  },
+  "G07_function_calls": {
+    "step_count": 5,
+    "return_value": "12",
+    "line_sequence": [
+      6,
+      3,
+      4,
+      7,
+      8
+    ]
+  },
+  "G08_recursion": {
+    "step_count": 29,
+    "return_value": "3",
+    "line_sequence": [
+      7,
+      8,
+      3,
+      4,
+      5,
+      3,
+      4,
+      5,
+      3,
+      4,
+      5,
+      3,
+      4,
+      4,
+      3,
+      4,
+      4,
+      3,
+      4,
+      4,
+      3,
+      4,
+      5,
+      3,
+      4,
+      4,
+      3,
+      4,
+      4
+    ]
+  },
+  "G09_arrays": {
+    "step_count": 6,
+    "return_value": "30",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  "G10_vector_operations": {
+    "step_count": 7,
+    "return_value": "2",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "G11_stack_operations": {
+    "step_count": 7,
+    "return_value": "10",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "G12_queue_operations": {
+    "step_count": 7,
+    "return_value": "15",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "G13_map_operations": {
+    "step_count": 4,
+    "return_value": "0",
+    "line_sequence": [
+      3,
+      4,
+      7,
+      8
+    ]
+  },
+  "G14_linked_lists": {
+    "step_count": 8,
+    "return_value": "20",
+    "line_sequence": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ]
+  },
+  "G15_binary_trees": {
+    "step_count": 8,
+    "return_value": "50",
+    "line_sequence": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "G16_pointer_allocation": {
+    "step_count": 4,
+    "return_value": "77",
+    "line_sequence": [
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "G17_pointer_aliasing": {
+    "step_count": 6,
+    "return_value": "99",
+    "line_sequence": [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ]
+  },
+  "G18_reference_behavior": {
+    "step_count": 6,
+    "return_value": "10",
+    "line_sequence": [
+      6,
+      7,
+      3,
+      4,
+      8,
+      9
+    ]
+  },
+  "G19_nested_calls": {
+    "step_count": 6,
+    "return_value": "11",
+    "line_sequence": [
+      9,
+      10,
+      6,
+      7,
+      3,
+      4
+    ]
+  },
+  "G20_return_values": {
+    "step_count": 5,
+    "return_value": "999",
+    "line_sequence": [
+      6,
+      3,
+      4,
+      7,
+      8
+    ]
+  },
+  "G21_conditional_branches": {
+    "step_count": 7,
+    "return_value": "2",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      13
+    ]
+  },
+  "G22_loops": {
+    "step_count": 11,
+    "return_value": "6",
+    "line_sequence": [
+      3,
+      4,
+      5,
+      5,
+      6,
+      5,
+      6,
+      5,
+      6,
+      5,
+      8
+    ]
+  }
+}
