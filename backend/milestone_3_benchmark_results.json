@@ -1,0 +1,105 @@
+{
+  "compiler": "clang++",
+  "version": "clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d81e72ac174dcb5aa28b59d1)",
+  "results": [
+    {
+      "category": "G01_basic_scalars",
+      "legacy_time_ms": 19.32,
+      "native_cold_time_ms": 1549.73,
+      "native_compile_time_ms": 711.01,
+      "native_warm_time_ms": 6.36,
+      "cold_vs_legacy_speedup": 0.012,
+      "warm_vs_legacy_speedup": 3.04,
+      "event_count": 12,
+      "raw_trace_bytes": 2596
+    },
+    {
+      "category": "G02_assignments",
+      "legacy_time_ms": 18.69,
+      "native_cold_time_ms": 1583.78,
+      "native_compile_time_ms": 700.95,
+      "native_warm_time_ms": 6.24,
+      "cold_vs_legacy_speedup": 0.012,
+      "warm_vs_legacy_speedup": 2.993,
+      "event_count": 10,
+      "raw_trace_bytes": 2173
+    },
+    {
+      "category": "G03_arithmetic",
+      "legacy_time_ms": 17.83,
+      "native_cold_time_ms": 2032.44,
+      "native_compile_time_ms": 684.36,
+      "native_warm_time_ms": 6.36,
+      "cold_vs_legacy_speedup": 0.009,
+      "warm_vs_legacy_speedup": 2.806,
+      "event_count": 10,
+      "raw_trace_bytes": 2126
+    },
+    {
+      "category": "G06_nested_scopes",
+      "legacy_time_ms": 18.08,
+      "native_cold_time_ms": 1159.73,
+      "native_compile_time_ms": 682.53,
+      "native_warm_time_ms": 6.95,
+      "cold_vs_legacy_speedup": 0.016,
+      "warm_vs_legacy_speedup": 2.601,
+      "event_count": 11,
+      "raw_trace_bytes": 2350
+    },
+    {
+      "category": "G07_function_calls",
+      "legacy_time_ms": 16.28,
+      "native_cold_time_ms": 1219.98,
+      "native_compile_time_ms": 690.89,
+      "native_warm_time_ms": 7.55,
+      "cold_vs_legacy_speedup": 0.013,
+      "warm_vs_legacy_speedup": 2.156,
+      "event_count": 11,
+      "raw_trace_bytes": 2419
+    },
+    {
+      "category": "G08_recursion",
+      "legacy_time_ms": 19.41,
+      "native_cold_time_ms": 1269.26,
+      "native_compile_time_ms": 678.47,
+      "native_warm_time_ms": 6.69,
+      "cold_vs_legacy_speedup": 0.015,
+      "warm_vs_legacy_speedup": 2.904,
+      "event_count": 49,
+      "raw_trace_bytes": 10387
+    },
+    {
+      "category": "G09_arrays",
+      "legacy_time_ms": 17.93,
+      "native_cold_time_ms": 1364.84,
+      "native_compile_time_ms": 722.68,
+      "native_warm_time_ms": 7.93,
+      "cold_vs_legacy_speedup": 0.013,
+      "warm_vs_legacy_speedup": 2.261,
+      "event_count": 11,
+      "raw_trace_bytes": 2345
+    },
+    {
+      "category": "G21_conditional_branches",
+      "legacy_time_ms": 18.66,
+      "native_cold_time_ms": 1311.69,
+      "native_compile_time_ms": 816.89,
+      "native_warm_time_ms": 7.77,
+      "cold_vs_legacy_speedup": 0.014,
+      "warm_vs_legacy_speedup": 2.403,
+      "event_count": 12,
+      "raw_trace_bytes": 2519
+    },
+    {
+      "category": "G22_loops",
+      "legacy_time_ms": 21.38,
+      "native_cold_time_ms": 1366.47,
+      "native_compile_time_ms": 816.45,
+      "native_warm_time_ms": 6.79,
+      "cold_vs_legacy_speedup": 0.016,
+      "warm_vs_legacy_speedup": 3.151,
+      "event_count": 16,
+      "raw_trace_bytes": 3372
+    }
+  ]
+}
