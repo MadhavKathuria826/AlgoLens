@@ -108,11 +108,12 @@ class CheckpointManager:
         self.checkpoints[event_seq] = self.clone_state(state)
         self.events_since_last = 0
 
-    def maybe_checkpoint(self, event: AlgoLensEvent, state: UniversalRuntimeState) -> bool:
+    def maybe_checkpoint(self, event: AlgoLensEvent, state: UniversalRuntimeState, event_index: Optional[int] = None) -> bool:
         """Evaluates policy and saves checkpoint if recommended."""
         self.events_since_last += 1
+        seq_key = event_index if event_index is not None else event.seq
         if self.policy.should_checkpoint(event, state, self.events_since_last):
-            self.record_checkpoint(event.seq, state)
+            self.record_checkpoint(seq_key, state)
             return True
         return False
 

@@ -41,9 +41,9 @@ class PlaybackEngine:
         temp_state = UniversalRuntimeState()
         self.checkpoint_manager.record_checkpoint(0, temp_state)
 
-        for event in self.events:
+        for idx, event in enumerate(self.events):
             temp_state = UniversalStateReducer.reduce(temp_state, event)
-            self.checkpoint_manager.maybe_checkpoint(event, temp_state)
+            self.checkpoint_manager.maybe_checkpoint(event, temp_state, event_index=idx + 1)
 
     def step_forward(self) -> Optional[UniversalRuntimeState]:
         """Applies the next event in the stream."""
@@ -52,8 +52,8 @@ class PlaybackEngine:
 
         event = self.events[self.current_event_index]
         self.current_state = UniversalStateReducer.reduce(self.current_state, event)
-        self.checkpoint_manager.maybe_checkpoint(event, self.current_state)
         self.current_event_index += 1
+        self.checkpoint_manager.maybe_checkpoint(event, self.current_state, event_index=self.current_event_index)
         return self.current_state
 
     def step_reverse(self) -> Optional[UniversalRuntimeState]:
@@ -107,16 +107,10 @@ class PlaybackEngine:
             return self.current_state
 
         # General case: Restore nearest checkpoint <= target
-        ckpt_seq, ckpt_state = self.checkpoint_manager.get_nearest_checkpoint(target)
+        ckpt_idx, ckpt_state = self.checkpoint_manager.get_nearest_checkpoint(target)
         if ckpt_state is not None:
             self.current_state = ckpt_state
-            # Find the event index corresponding to ckpt_seq
-            curr_idx = 0
-            for idx, ev in enumerate(self.events):
-                if ev.seq == ckpt_seq:
-                    curr_idx = idx + 1
-                    break
-            self.current_event_index = curr_idx
+            self.current_event_index = ckpt_idx
         else:
             self.current_state = UniversalRuntimeState()
             self.current_event_index = 0
