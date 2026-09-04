@@ -97,9 +97,10 @@ def get_node_spelling(node: Any) -> str:
 
 class Heap:
     """Simulated Heap mapping synthetic memory addresses (0x1000) to object dicts."""
-    def __init__(self):
+    def __init__(self, observer=None):
         self._address_counter = 0x1000
         self._memory: Dict[str, Dict[str, Any]] = {}
+        self.observer = observer
 
     def allocate(self, type_name: str = "Object", initial_fields: Dict[str, Any] = None) -> str:
         addr = f"0x{self._address_counter:04x}"
@@ -109,6 +110,8 @@ class Heap:
             "type": type_name,
             "fields": fields
         }
+        if self.observer:
+            self.observer.on_object_allocate(addr, type_name, fields)
         return addr
 
     def get(self, addr: str) -> Optional[Dict[str, Any]]:
@@ -117,6 +120,8 @@ class Heap:
     def set_field(self, addr: str, field: str, value: Any):
         if addr in self._memory:
             self._memory[addr]["fields"][field] = value
+            if self.observer:
+                self.observer.on_object_mutate(addr, field, value)
         else:
             raise KeyError(f"Null or invalid pointer dereference at address '{addr}'")
 
@@ -174,8 +179,9 @@ class Scope:
 
 class Environment:
     """Execution environment managing call stack, heap, and struct definitions."""
-    def __init__(self):
-        self.heap = Heap()
+    def __init__(self, observer=None):
+        self.observer = observer
+        self.heap = Heap(observer=observer)
         self.global_scope = Scope(name="global")
         self.call_stack: List[Scope] = [self.global_scope]
         self.struct_definitions: Dict[str, Dict[str, Any]] = {}
@@ -188,11 +194,15 @@ class Environment:
     def push_scope(self, name: str = "block") -> Scope:
         new_scope = Scope(parent=self.current_scope, name=name)
         self.call_stack.append(new_scope)
+        if self.observer:
+            self.observer.on_scope_enter(name)
         return new_scope
 
     def pop_scope(self):
         if len(self.call_stack) > 1:
             self.call_stack.pop()
+            if self.observer:
+                self.observer.on_scope_exit()
 
     def push_function_frame(self, name: str = "function") -> Scope:
         frame_scope = Scope(parent=self.global_scope, name=name)
@@ -222,6 +232,11 @@ def assign_var(name: str, val: Any, type_str: str, scope: Scope, env: Environmen
     assigned = scope.assign(name, processed_val)
     if not assigned:
         scope.declare(name, processed_val, type_str)
+        if env and getattr(env, 'observer', None):
+            env.observer.on_var_declare(name, processed_val, type_str)
+    else:
+        if env and getattr(env, 'observer', None):
+            env.observer.on_var_write(name, processed_val, type_str)
     return processed_val
 
 def pass_argument(param_name: str, val: Any, param_type_str: str, callee_scope: Scope, env: Environment):
@@ -247,8 +262,9 @@ def pass_argument(param_name: str, val: Any, param_type_str: str, callee_scope: 
 # --- Interpreter Class ---
 
 class CPPInterpreter:
-    def __init__(self, max_recursion_depth: int = 100, max_loop_iterations: int = 10000, max_total_steps: int = 2000):
-        self.env = Environment()
+    def __init__(self, max_recursion_depth: int = 100, max_loop_iterations: int = 10000, max_total_steps: int = 2000, event_observer=None):
+        self.event_observer = event_observer
+        self.env = Environment(observer=event_observer)
         self.steps: List[Step] = []
         self.step_counter = 0
         self.header_lines_count = 0
@@ -352,6 +368,16 @@ class CPPInterpreter:
         )
         self.steps.append(step)
         self.step_counter += 1
+
+        if self.event_observer:
+            for k, v in locals_snapshot.items():
+                c_type = self.container_types.get(k)
+                if isinstance(v, list):
+                    kind = "STACK" if c_type == 'stack' else ("HEAP" if 'priority_queue' in (c_type or "") else "ARRAY")
+                    self.event_observer.on_container_op(k, kind, "SET_INDEX", list(range(len(v))), v)
+                elif isinstance(v, dict):
+                    self.event_observer.on_container_op(k, "MAP", "INSERT", meta=v)
+            self.event_observer.on_step_line(line_number)
 
     def parse_struct_definitions(self, root_cursor: Cursor):
         """Scans AST for struct/class declarations and records their fields."""
@@ -1131,6 +1157,8 @@ class CPPInterpreter:
                 body_node = child
 
         callee_scope = self.env.push_function_frame(func_name)
+        if self.event_observer:
+            self.event_observer.on_frame_push(func_name, dict(zip([p[0] for p in params], args)))
         try:
             for (p_name, p_type), arg_val in zip(params, args):
                 pass_argument(p_name, arg_val, p_type, callee_scope, self.env)
@@ -1141,6 +1169,8 @@ class CPPInterpreter:
                 self.exec_stmt(body_node)
             return None
         except ReturnException as ret:
+            if self.event_observer:
+                self.event_observer.on_frame_pop(ret.value)
             return ret.value
         finally:
             self.env.pop_scope()
@@ -1149,6 +1179,8 @@ class CPPInterpreter:
 
     def interpret(self, code: str, entry_function_name: str, args: List[Any]) -> Tuple[List[Step], Any]:
         """Interprets C++ code starting at entry_function_name with given test arguments."""
+        if self.event_observer:
+            self.event_observer.on_prog_start(entry_function_name, args)
         tu, self.header_lines_count = parse_cpp_ast(code, use_header_mocks=True)
         self.container_types = classify_stl_containers(code)
         self.parse_struct_definitions(tu.cursor)
@@ -1159,3 +1191,15 @@ class CPPInterpreter:
         entry_cursor = self.env.function_cursors[entry_function_name]
         return_val = self.call_function(entry_cursor, args)
         return self.steps, return_val
+
+    def interpret_with_events(self, code: str, entry_function_name: str, args: List[Any]):
+        """Runs the compatibility pipeline: Interpreter -> Events -> Reducer -> EventToStepAdapter -> Steps."""
+        from event_observer import EventObserver
+        from event_to_step_adapter import EventToStepAdapter
+        observer = EventObserver()
+        self.event_observer = observer
+        self.env = Environment(observer=observer)
+        legacy_steps, return_val = self.interpret(code, entry_function_name, args)
+        adapter = EventToStepAdapter()
+        reconstructed_steps = adapter.process_event_stream(observer.events, container_types=self.container_types)
+        return observer.events, reconstructed_steps, return_val
