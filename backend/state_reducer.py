@@ -261,11 +261,13 @@ class UniversalStateReducer:
             for f_name, f_val in raw_fields.items():
                 if isinstance(f_val, dict) and "kind" in f_val:
                     parsed_fields[f_name] = ObjectRef(**f_val) if f_val["kind"] == "object_ref" else (NullRef() if f_val["kind"] == "null_ref" else PrimitiveValue(**f_val))
-                elif isinstance(f_val, str) and (f_val.startswith("obj_") or f_val.startswith("0x")):
+                elif isinstance(f_val, str):
                     if f_val in ("0x0000", "nullptr", "NULL"):
                         parsed_fields[f_name] = NullRef()
-                    else:
+                    elif f_val.startswith("obj_"):
                         parsed_fields[f_name] = ObjectRef(object_id=f_val)
+                    else:
+                        parsed_fields[f_name] = PrimitiveValue(type_name="unknown", value=f_val)
                 else:
                     parsed_fields[f_name] = PrimitiveValue(type_name="unknown", value=f_val)
 
@@ -283,12 +285,22 @@ class UniversalStateReducer:
             raw_val = payload.get("new_value")
 
             if isinstance(raw_val, dict) and "kind" in raw_val:
-                u_val = ObjectRef(**raw_val) if raw_val["kind"] == "object_ref" else (NullRef() if raw_val["kind"] == "null_ref" else PrimitiveValue(**raw_val))
-            elif isinstance(raw_val, str) and (raw_val.startswith("obj_") or raw_val.startswith("0x")):
+                k = raw_val["kind"]
+                if k == "object_ref":
+                    u_val = ObjectRef(**raw_val)
+                elif k == "null_ref":
+                    u_val = NullRef()
+                elif k == "dangling_ref":
+                    u_val = DanglingRef(**raw_val)
+                else:
+                    u_val = PrimitiveValue(**raw_val)
+            elif isinstance(raw_val, str):
                 if raw_val in ("0x0000", "nullptr", "NULL"):
                     u_val = NullRef()
-                else:
+                elif raw_val.startswith("obj_"):
                     u_val = ObjectRef(object_id=raw_val)
+                else:
+                    u_val = PrimitiveValue(type_name="unknown", value=raw_val)
             else:
                 u_val = PrimitiveValue(type_name="unknown", value=raw_val)
 
@@ -326,7 +338,11 @@ class UniversalStateReducer:
             elif op == "INSERT":
                 meta = payload.get("meta")
                 if meta is not None and isinstance(meta, dict):
-                    c_state["elements"] = copy.deepcopy(meta)
+                    if not isinstance(c_state["elements"], dict):
+                        c_state["elements"] = {}
+                    for mk, mv in meta.items():
+                        mval = mv.get("value") if isinstance(mv, dict) and "value" in mv else mv
+                        c_state["elements"][mk] = mval
 
         return state
 
@@ -400,8 +416,13 @@ class UniversalStateReducer:
                     old_u = Uninitialized()
             elif isinstance(old_raw, UniversalValue):
                 old_u = old_raw
-            elif isinstance(old_raw, str) and (old_raw.startswith("obj_") or old_raw.startswith("0x")):
-                old_u = NullRef() if old_raw in ("0x0000", "nullptr", "NULL") else ObjectRef(object_id=old_raw)
+            elif isinstance(old_raw, str):
+                if old_raw in ("0x0000", "nullptr", "NULL"):
+                    old_u = NullRef()
+                elif old_raw.startswith("obj_"):
+                    old_u = ObjectRef(object_id=old_raw)
+                else:
+                    old_u = PrimitiveValue(type_name="unknown", value=old_raw)
             else:
                 old_u = PrimitiveValue(type_name="unknown", value=old_raw)
 
@@ -415,11 +436,27 @@ class UniversalStateReducer:
             obj_id = payload["object_id"]
             if obj_id in state.heap:
                 state.heap[obj_id].is_alive = True
+                if "old_fields" in payload and payload["old_fields"]:
+                    old_f = {}
+                    for fk, fv in (payload.get("old_fields") or {}).items():
+                        if isinstance(fv, dict) and "kind" in fv:
+                            old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else (DanglingRef(**fv) if fv["kind"] == "dangling_ref" else PrimitiveValue(**fv)))
+                        elif isinstance(fv, str) and fv.startswith("obj_"):
+                            old_f[fk] = ObjectRef(object_id=fv)
+                        elif isinstance(fv, str) and fv in ("0x0000", "nullptr", "NULL"):
+                            old_f[fk] = NullRef()
+                        else:
+                            old_f[fk] = PrimitiveValue(type_name="unknown", value=fv)
+                    state.heap[obj_id].fields = old_f
             elif "old_fields" in payload:
                 old_f = {}
                 for fk, fv in (payload.get("old_fields") or {}).items():
                     if isinstance(fv, dict) and "kind" in fv:
-                        old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else PrimitiveValue(**fv))
+                        old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else (DanglingRef(**fv) if fv["kind"] == "dangling_ref" else PrimitiveValue(**fv)))
+                    elif isinstance(fv, str) and fv.startswith("obj_"):
+                        old_f[fk] = ObjectRef(object_id=fv)
+                    elif isinstance(fv, str) and fv in ("0x0000", "nullptr", "NULL"):
+                        old_f[fk] = NullRef()
                     else:
                         old_f[fk] = PrimitiveValue(type_name="unknown", value=fv)
                 state.heap[obj_id] = UniversalHeapObject(
@@ -441,18 +478,32 @@ class UniversalStateReducer:
                 c_state = state.containers[c_id]
                 old_vals = payload.get("old_values")
                 old_meta = payload.get("old_meta")
-                if old_vals is not None:
+                if op == "POP":
+                    # Inverse of POP is pushing the popped elements back
+                    if old_vals is not None:
+                        for v in old_vals:
+                            val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
+                            c_state["elements"].append(val_repr)
+                elif op == "PUSH":
+                    count = len(payload.get("values") or [1])
+                    for _ in range(count):
+                        if c_state["elements"]:
+                            c_state["elements"].pop()
+                elif op == "INSERT":
+                    if old_meta is not None and isinstance(old_meta, dict):
+                        c_state["elements"].update(old_meta)
+                    else:
+                        meta = payload.get("meta")
+                        if meta and isinstance(meta, dict) and isinstance(c_state["elements"], dict):
+                            for k in meta:
+                                c_state["elements"].pop(k, None)
+                elif old_vals is not None:
                     c_state["elements"] = []
                     for v in old_vals:
                         val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
                         c_state["elements"].append(val_repr)
                 elif old_meta is not None and isinstance(old_meta, dict):
                     c_state["elements"] = copy.deepcopy(old_meta)
-                elif op == "PUSH":
-                    count = len(payload.get("values") or [1])
-                    for _ in range(count):
-                        if c_state["elements"]:
-                            c_state["elements"].pop()
                 else:
                     state.containers.pop(c_id, None)
 

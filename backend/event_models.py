@@ -64,8 +64,8 @@ def value_from_python(val: Any, type_str: str = "") -> UniversalValue:
         if val.startswith("obj_"):
             return ObjectRef(object_id=val)
         if val.startswith("0x"):
-            # Address string mapping
-            return ObjectRef(object_id=val)
+            # Raw addresses are NOT universal object IDs; treat as debug address primitive
+            return PrimitiveValue(type_name="address", value=val)
         return PrimitiveValue(type_name="string", value=val)
     return PrimitiveValue(type_name=type_str or "unknown", value=str(val))
 

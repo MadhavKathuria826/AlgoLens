@@ -62,7 +62,7 @@ class CPPInstrumentor:
         mock_preamble = (
             "namespace std {\n"
             "    struct string { string(); string(const char*); };\n"
-            "    template<typename T> struct vector { void push_back(const T&); void pop_back(); int size(); bool empty(); T& operator[](int); };\n"
+            "    template<typename T> struct vector { void push_back(const T&); void pop_back(); T& back(); int size(); bool empty(); T& operator[](int); };\n"
             "    template<typename T> struct stack { void push(const T&); void pop(); T top(); int size(); bool empty(); };\n"
             "    template<typename T> struct queue { void push(const T&); void pop(); T front(); int size(); bool empty(); };\n"
             "    template<typename K, typename V> struct map { V& operator[](const K&); int size(); bool empty(); };\n"
@@ -181,9 +181,15 @@ class CPPInstrumentor:
         for stmt in block_node.get_children():
             ret_counter = self._instrument_stmt(stmt, source_code, edits, ret_counter, offset_shift, line_shift)
         return ret_counter
-
     def _instrument_stmt(self, stmt: Cursor, source_code: str, edits: List[SourceEdit], ret_counter: int, offset_shift: int, line_shift: int) -> int:
         k = stmt.kind
+        # Unwrap UNEXPOSED_EXPR if it wraps an underlying call or binary expression
+        if k == CursorKind.UNEXPOSED_EXPR:
+            ch_list = list(stmt.get_children())
+            if ch_list:
+                stmt = ch_list[0]
+                k = stmt.kind
+
         line = stmt.location.line - line_shift
         stmt_start = stmt.extent.start.offset - offset_shift
         stmt_end = stmt.extent.end.offset - offset_shift
@@ -224,7 +230,9 @@ class CPPInstrumentor:
                         arr_children = list(lhs.get_children())
                         if len(arr_children) >= 2:
                             arr_name = arr_children[0].spelling
-                            idx_str = source_code[arr_children[1].extent.start.offset - offset_shift : arr_children[1].extent.end.offset - offset_shift]
+                            idx_str = source_code[arr_children[1].extent.start.offset - offset_shift : arr_children[1].extent.end.offset - offset_shift].strip()
+                            if idx_str.startswith("[") and idx_str.endswith("]"):
+                                idx_str = idx_str[1:-1].strip()
                             arr_type = arr_children[0].type.spelling.lower()
                             if "map" in arr_type:
                                 arr_hook = f"\n    AL_MAP_INSERT(\"{arr_name}\", ({idx_str}), {arr_name}[({idx_str})], {line});"
@@ -237,7 +245,10 @@ class CPPInstrumentor:
                         op_children = list(lhs.get_children())
                         if len(op_children) >= 2:
                             map_name = op_children[0].spelling
-                            key_str = source_code[op_children[1].extent.start.offset - offset_shift : op_children[1].extent.end.offset - offset_shift]
+                            key_node = op_children[-1]
+                            key_str = source_code[key_node.extent.start.offset - offset_shift : key_node.extent.end.offset - offset_shift].strip()
+                            if key_str.startswith("[") and key_str.endswith("]"):
+                                key_str = key_str[1:-1].strip()
                             map_hook = f"\n    AL_MAP_INSERT(\"{map_name}\", ({key_str}), {map_name}[({key_str})], {line});"
                             edits.append(SourceEdit(ins_pos, map_hook, priority=2))
 
@@ -296,12 +307,13 @@ class CPPInstrumentor:
                             hook = f"\n    AL_CONTAINER_PUSH(\"{c_name}\", \"{c_kind}\", ({arg_str}), {line});"
                             edits.append(SourceEdit(ins_pos, hook, priority=2))
                         elif method_name == "pop_back":
-                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"ARRAY\", 0, {line});"
-                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"ARRAY\", ({c_name}.back()), {line});"
+                            edits.append(SourceEdit(stmt_start, hook, priority=1))
                         elif method_name == "pop":
                             c_kind = "QUEUE" if "queue" in c_type else "STACK"
-                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"{c_kind}\", 0, {line});"
-                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+                            acc = f"{c_name}.front()" if "queue" in c_type else f"{c_name}.top()"
+                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"{c_kind}\", ({acc}), {line});"
+                            edits.append(SourceEdit(stmt_start, hook, priority=1))
 
         # 5. Return Statement: return expr;
         elif k == CursorKind.RETURN_STMT:

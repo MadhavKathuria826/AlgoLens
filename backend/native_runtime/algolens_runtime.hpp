@@ -184,6 +184,14 @@ inline std::string value_to_json(unsigned int v) {
     return "{\"kind\":\"primitive\",\"type_name\":\"int\",\"value\":" + std::to_string(v) + "}";
 }
 
+inline std::string value_to_json(unsigned long v) {
+    return "{\"kind\":\"primitive\",\"type_name\":\"int\",\"value\":" + std::to_string(v) + "}";
+}
+
+inline std::string value_to_json(unsigned long long v) {
+    return "{\"kind\":\"primitive\",\"type_name\":\"int\",\"value\":" + std::to_string(v) + "}";
+}
+
 inline std::string value_to_json(float v) {
     std::ostringstream ss;
     ss << std::setprecision(6) << v;

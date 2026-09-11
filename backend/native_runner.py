@@ -63,6 +63,8 @@ class NativeCompilationPipeline:
         self.instrumentor = CPPInstrumentor()
         self.compiler_path, self.compiler_name, self.compiler_version = self._detect_compiler(compiler_override)
         self.runtime_header_dir = os.path.join(BACKEND_DIR, "native_runtime")
+        self.build_cache_dir = os.path.join(BACKEND_DIR, ".tmp_builds")
+        os.makedirs(self.build_cache_dir, exist_ok=True)
 
     def _detect_compiler(self, override: Optional[str] = None) -> Tuple[str, str, str]:
         """Detects host C++ compiler (Clang++ preferred, falling back to g++)."""
@@ -101,7 +103,7 @@ class NativeCompilationPipeline:
             return None, None, 0.0, f"Instrumentation failed: {e}"
 
         # Step 2: Isolated Compilation in Temporary Directory
-        temp_dir = tempfile.mkdtemp(prefix="algolens_native_")
+        temp_dir = tempfile.mkdtemp(prefix="algolens_native_", dir=self.build_cache_dir)
         src_path = os.path.join(temp_dir, "app.cpp")
         exe_path = os.path.join(temp_dir, "app.exe" if sys.platform == "win32" else "app")
 
@@ -144,23 +146,39 @@ class NativeCompilationPipeline:
         Executes an already compiled native binary, returning events and runtime statistics.
         """
         t_exec_start = time.perf_counter()
-        try:
-            run_res = subprocess.run(
-                [compiled.exe_path],
-                capture_output=True,
-                text=True,
-                timeout=timeout_sec
-            )
-            exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
-        except subprocess.TimeoutExpired:
-            return NativeExecutionResult(
-                success=False,
-                error_message=f"Execution timed out after {timeout_sec}s",
-                compiler_name=self.compiler_name,
-                compiler_version=self.compiler_version,
-                compile_time_ms=compiled.compile_time_ms,
-                instrumented_code=compiled.instrumented_code
-            )
+        run_res = None
+        for attempt in range(8):
+            try:
+                run_res = subprocess.run(
+                    [compiled.exe_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_sec
+                )
+                break
+            except OSError as oe:
+                # Handle transient Windows Defender/SmartScreen scan lock (WinError 4551, 5, 32)
+                if attempt < 7 and getattr(oe, 'winerror', None) in (4551, 5, 32):
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Process invocation failed: {oe}",
+                    compiler_name=self.compiler_name,
+                    compiler_version=self.compiler_version,
+                    compile_time_ms=compiled.compile_time_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+            except subprocess.TimeoutExpired:
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Execution timed out after {timeout_sec}s",
+                    compiler_name=self.compiler_name,
+                    compiler_version=self.compiler_version,
+                    compile_time_ms=compiled.compile_time_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+        exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
 
         # Demultiplex Event Stream and User Stdout
         events: List[AlgoLensEvent] = []
@@ -221,25 +239,34 @@ class NativeCompilationPipeline:
     ) -> NativeExecutionResult:
         """
         Full native pipeline: instrument -> compile -> execute -> parse events.
+        Includes retry logic with fresh binary paths to overcome transient Windows
+        Smart App Control rate limit locks (WinError 4551).
         """
         t_total_start = time.perf_counter()
-        compiled, diag, compile_ms, err = self.compile_only(source_code, entry_func, args)
-        if err or not compiled:
-            return NativeExecutionResult(
-                success=False,
-                compiler_diagnostics=diag or "",
-                error_message=err,
-                compiler_name=self.compiler_name,
-                compiler_version=self.compiler_version,
-                compile_time_ms=compile_ms
-            )
+        last_res = None
+        for attempt in range(3):
+            compiled, diag, compile_ms, err = self.compile_only(source_code, entry_func, args)
+            if err or not compiled:
+                return NativeExecutionResult(
+                    success=False,
+                    compiler_diagnostics=diag or "",
+                    error_message=err,
+                    compiler_name=self.compiler_name,
+                    compiler_version=self.compiler_version,
+                    compile_time_ms=compile_ms
+                )
 
-        try:
-            res = self.run_binary(compiled, timeout_sec=timeout_sec, max_events=max_events)
-            res.total_time_ms = (time.perf_counter() - t_total_start) * 1000.0
-            return res
-        finally:
-            compiled.cleanup()
+            try:
+                res = self.run_binary(compiled, timeout_sec=timeout_sec, max_events=max_events)
+                res.total_time_ms = (time.perf_counter() - t_total_start) * 1000.0
+                if res.success or "4551" not in (res.error_message or ""):
+                    return res
+                last_res = res
+                time.sleep(0.5 * (attempt + 1))
+            finally:
+                compiled.cleanup()
+
+        return last_res
 
     def compile_uninstrumented(
         self,
@@ -250,7 +277,7 @@ class NativeCompilationPipeline:
         Compiles the pure, uninstrumented C++ code.
         Returns (CompiledBinary or None, compiler_diagnostics, compile_time_ms, error_message).
         """
-        temp_dir = tempfile.mkdtemp(prefix="algolens_uninst_")
+        temp_dir = tempfile.mkdtemp(prefix="algolens_uninst_", dir=self.build_cache_dir)
         src_path = os.path.join(temp_dir, "app_raw.cpp")
         exe_path = os.path.join(temp_dir, "app_raw.exe" if sys.platform == "win32" else "app_raw")
 
