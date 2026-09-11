@@ -1,0 +1,136 @@
+{
+  "compiler": "clang++",
+  "version": "clang version 22.1.8 (https://github.com/llvm/llvm-project.git ca7933e47d3a3451d81e72ac174dcb5aa28b59d1)",
+  "results": [
+    {
+      "category": "G01_basic_scalars",
+      "uninstrumented_exec_ms": 6.46,
+      "instrumented_warm_ms": 92.27,
+      "overhead_ratio": 14.27,
+      "legacy_time_ms": 17.28,
+      "native_vs_legacy_speedup": 0.19,
+      "event_count": 12,
+      "raw_trace_bytes": 2596
+    },
+    {
+      "category": "G03_arithmetic",
+      "uninstrumented_exec_ms": 5.35,
+      "instrumented_warm_ms": 200.33,
+      "overhead_ratio": 37.46,
+      "legacy_time_ms": 16.13,
+      "native_vs_legacy_speedup": 0.08,
+      "event_count": 10,
+      "raw_trace_bytes": 2126
+    },
+    {
+      "category": "G08_recursion",
+      "uninstrumented_exec_ms": 5.49,
+      "instrumented_warm_ms": 169.71,
+      "overhead_ratio": 30.93,
+      "legacy_time_ms": 18.29,
+      "native_vs_legacy_speedup": 0.11,
+      "event_count": 49,
+      "raw_trace_bytes": 10387
+    },
+    {
+      "category": "G09_arrays",
+      "uninstrumented_exec_ms": 6.48,
+      "instrumented_warm_ms": 154.92,
+      "overhead_ratio": 23.92,
+      "legacy_time_ms": 16.4,
+      "native_vs_legacy_speedup": 0.11,
+      "event_count": 11,
+      "raw_trace_bytes": 2345
+    },
+    {
+      "category": "G22_loops",
+      "uninstrumented_exec_ms": 5.34,
+      "instrumented_warm_ms": 122.56,
+      "overhead_ratio": 22.94,
+      "legacy_time_ms": 19.17,
+      "native_vs_legacy_speedup": 0.16,
+      "event_count": 16,
+      "raw_trace_bytes": 3372
+    },
+    {
+      "category": "G14_linked_lists",
+      "uninstrumented_exec_ms": 7.41,
+      "instrumented_warm_ms": 182.3,
+      "overhead_ratio": 24.6,
+      "legacy_time_ms": 18.74,
+      "native_vs_legacy_speedup": 0.1,
+      "event_count": 18,
+      "raw_trace_bytes": 4073
+    },
+    {
+      "category": "G15_binary_trees",
+      "uninstrumented_exec_ms": 6.77,
+      "instrumented_warm_ms": 165.53,
+      "overhead_ratio": 24.45,
+      "legacy_time_ms": 19.63,
+      "native_vs_legacy_speedup": 0.12,
+      "event_count": 18,
+      "raw_trace_bytes": 4092
+    },
+    {
+      "category": "G16_pointer_allocation",
+      "uninstrumented_exec_ms": 6.47,
+      "instrumented_warm_ms": 156.45,
+      "overhead_ratio": 24.2,
+      "legacy_time_ms": 18.1,
+      "native_vs_legacy_speedup": 0.12,
+      "event_count": 9,
+      "raw_trace_bytes": 1981
+    },
+    {
+      "category": "G17_pointer_aliasing",
+      "uninstrumented_exec_ms": 7.89,
+      "instrumented_warm_ms": 103.55,
+      "overhead_ratio": 13.12,
+      "legacy_time_ms": 18.56,
+      "native_vs_legacy_speedup": 0.18,
+      "event_count": 13,
+      "raw_trace_bytes": 2903
+    },
+    {
+      "category": "G10_vector_operations",
+      "uninstrumented_exec_ms": 6.71,
+      "instrumented_warm_ms": 158.39,
+      "overhead_ratio": 23.62,
+      "legacy_time_ms": 19.07,
+      "native_vs_legacy_speedup": 0.12,
+      "event_count": 10,
+      "raw_trace_bytes": 2155
+    },
+    {
+      "category": "G11_stack_operations",
+      "uninstrumented_exec_ms": 6.46,
+      "instrumented_warm_ms": 130.71,
+      "overhead_ratio": 20.23,
+      "legacy_time_ms": 18.03,
+      "native_vs_legacy_speedup": 0.14,
+      "event_count": 10,
+      "raw_trace_bytes": 2157
+    },
+    {
+      "category": "G12_queue_operations",
+      "uninstrumented_exec_ms": 8.25,
+      "instrumented_warm_ms": 152.23,
+      "overhead_ratio": 18.45,
+      "legacy_time_ms": 18.36,
+      "native_vs_legacy_speedup": 0.12,
+      "event_count": 10,
+      "raw_trace_bytes": 2157
+    },
+    {
+      "category": "G13_map_operations",
+      "uninstrumented_exec_ms": 6.39,
+      "instrumented_warm_ms": 134.49,
+      "overhead_ratio": 21.05,
+      "legacy_time_ms": 19.39,
+      "native_vs_legacy_speedup": 0.14,
+      "event_count": 8,
+      "raw_trace_bytes": 1725
+    }
+  ]
+}

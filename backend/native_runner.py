@@ -240,3 +240,84 @@ class NativeCompilationPipeline:
             return res
         finally:
             compiled.cleanup()
+
+    def compile_uninstrumented(
+        self,
+        source_code: str,
+        entry_func: str = "main"
+    ) -> Tuple[Optional[CompiledBinary], Optional[str], float, Optional[str]]:
+        """
+        Compiles the pure, uninstrumented C++ code.
+        Returns (CompiledBinary or None, compiler_diagnostics, compile_time_ms, error_message).
+        """
+        temp_dir = tempfile.mkdtemp(prefix="algolens_uninst_")
+        src_path = os.path.join(temp_dir, "app_raw.cpp")
+        exe_path = os.path.join(temp_dir, "app_raw.exe" if sys.platform == "win32" else "app_raw")
+
+        full_code = (
+            "#include <string>\n"
+            "#include <vector>\n"
+            "#include <stack>\n"
+            "#include <queue>\n"
+            "#include <map>\n"
+            "#include <unordered_map>\n\n"
+            + source_code
+        )
+        if "main" not in source_code and entry_func in source_code:
+            full_code += f"\n\nint main() {{\n    {entry_func}();\n    return 0;\n}}\n"
+
+        try:
+            with open(src_path, "w", encoding="utf-8") as f:
+                f.write(full_code)
+
+            compile_cmd = [
+                self.compiler_path,
+                "-std=c++17",
+                "-O0",
+                src_path,
+                "-o",
+                exe_path
+            ]
+            t0 = time.perf_counter()
+            c_res = subprocess.run(compile_cmd, capture_output=True, text=True, timeout=15)
+            compile_ms = (time.perf_counter() - t0) * 1000.0
+
+            if c_res.returncode != 0:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return None, c_res.stderr, compile_ms, f"Uninstrumented compilation failed: {c_res.stderr}"
+
+            return CompiledBinary(temp_dir, exe_path, compile_ms, full_code), c_res.stderr, compile_ms, None
+        except Exception as e:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None, None, 0.0, f"Compilation exception: {e}"
+
+    def compile_and_run_uninstrumented(
+        self,
+        source_code: str,
+        entry_func: str = "main",
+        args: List[Any] = None,
+        timeout_sec: float = 5.0
+    ) -> Tuple[float, float, int]:
+        """
+        Compiles and runs the pure, uninstrumented C++ code.
+        Returns (compile_time_ms, execution_time_ms, exit_code).
+        """
+        compiled, diag, c_ms, err = self.compile_uninstrumented(source_code, entry_func)
+        if err or not compiled:
+            raise RuntimeError(err or "Uninstrumented compilation failed")
+
+        try:
+            # Warm up process cache once
+            subprocess.run([compiled.exe_path], capture_output=True, timeout=timeout_sec)
+            
+            # Measure warm execution
+            times = []
+            for _ in range(5):
+                t1 = time.perf_counter()
+                r_res = subprocess.run([compiled.exe_path], capture_output=True, text=True, timeout=timeout_sec)
+                times.append((time.perf_counter() - t1) * 1000.0)
+            exec_ms = sum(times) / len(times)
+
+            return c_ms, exec_ms, r_res.returncode
+        finally:
+            compiled.cleanup()
