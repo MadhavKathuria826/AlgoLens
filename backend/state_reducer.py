@@ -145,7 +145,9 @@ class UniversalStateReducer:
                 popped_id = state.call_stack.pop()
                 if popped_id in state.frames and "return_value" in payload:
                     raw_ret = payload["return_value"]
-                    if isinstance(raw_ret, dict) and "kind" in raw_ret:
+                    if raw_ret is None:
+                        ret_u = None
+                    elif isinstance(raw_ret, dict) and "kind" in raw_ret:
                         k = raw_ret["kind"]
                         if k == "primitive":
                             ret_u = PrimitiveValue(**raw_ret)
@@ -153,6 +155,8 @@ class UniversalStateReducer:
                             ret_u = ObjectRef(**raw_ret)
                         elif k == "null_ref":
                             ret_u = NullRef()
+                        elif k == "dangling_ref":
+                            ret_u = DanglingRef(**raw_ret)
                         else:
                             ret_u = Uninitialized()
                     elif isinstance(raw_ret, UniversalValue):
