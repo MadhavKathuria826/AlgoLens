@@ -1,10 +1,15 @@
 """
-AlgoLens Native C++ Source-Level Instrumentor (Milestone 3 Prototype)
+AlgoLens Native C++ Source-Level Instrumentor (Milestone 4)
 Uses libclang AST inspection to perform syntax-preserving instrumentation:
 - Function entry & exit wrapping (FRAME_PUSH / FRAME_POP) with zero side-effect duplication
 - Variable declaration tracking (VAR_DECLARE)
-- Assignment & mutation tracking (VAR_WRITE)
+- Scalar assignment tracking (VAR_WRITE)
+- Dynamic memory allocation wrapping (OBJECT_ALLOCATE via al_new)
+- Dynamic memory deallocation wrapping (OBJECT_DEALLOCATE via al_delete)
+- Struct/Class member field mutations (OBJECT_MUTATE via al_field_write)
+- Pointer dereference mutations (OBJECT_MUTATE via al_deref_write)
 - Array element updates (CONTAINER_OP / SET_INDEX)
+- Standard container operations: std::vector (push_back), std::stack (push/pop), std::queue (push/pop), std::map (operator[])
 - Statement step locations (STEP_LINE) with original source line mapping
 - Synthetic main() driver generation when entry function is non-main (e.g. test())
 """
@@ -18,9 +23,9 @@ import cpp_classifier  # Ensures libclang native library is configured
 
 
 class UnsupportedConstructError(Exception):
-    """Raised when user source contains C++ constructs not yet supported by the native prototype."""
+    """Raised when user source contains C++ constructs not yet supported by the native runtime."""
     def __init__(self, construct: str, line: int = 0):
-        super().__init__(f"Unsupported C++ construct for Native Milestone 3: '{construct}' at line {line}")
+        super().__init__(f"Unsupported C++ construct for Native Milestone 4: '{construct}' at line {line}")
         self.construct = construct
         self.line = line
 
@@ -54,7 +59,16 @@ class CPPInstrumentor:
         Returns the transformed C++ source string with algolens_runtime.hpp included.
         """
         # Parse Translation Unit with mock preamble for std types
-        mock_preamble = "namespace std { struct string { string(); string(const char*); }; }\n"
+        mock_preamble = (
+            "namespace std {\n"
+            "    struct string { string(); string(const char*); };\n"
+            "    template<typename T> struct vector { void push_back(const T&); void pop_back(); int size(); bool empty(); T& operator[](int); };\n"
+            "    template<typename T> struct stack { void push(const T&); void pop(); T top(); int size(); bool empty(); };\n"
+            "    template<typename T> struct queue { void push(const T&); void pop(); T front(); int size(); bool empty(); };\n"
+            "    template<typename K, typename V> struct map { V& operator[](const K&); int size(); bool empty(); };\n"
+            "    template<typename K, typename V> struct unordered_map { V& operator[](const K&); int size(); bool empty(); };\n"
+            "}\n"
+        )
         offset_shift = len(mock_preamble)
         line_shift = mock_preamble.count("\n")
         full_source = mock_preamble + source_code
@@ -76,17 +90,29 @@ class CPPInstrumentor:
         found_functions: Set[str] = set()
         ret_counter = 0
 
-        # Scan for unsupported constructs first (Milestone 3 boundaries)
+        # Scan for unsupported constructs and dynamic allocation
         for cursor in tu.cursor.walk_preorder():
             if not cursor.location.file or cursor.location.file.name != "input.cpp" or cursor.location.line <= line_shift:
                 continue
             k = cursor.kind
-            # Reject dynamic allocation in Milestone 3 (scheduled for Milestone 4)
-            if k in (CursorKind.CXX_NEW_EXPR, CursorKind.CXX_DELETE_EXPR):
-                raise UnsupportedConstructError("dynamic allocation (new/delete)", cursor.location.line - line_shift)
-            # Reject classes with inheritance in Milestone 3
+            # Reject classes with inheritance in Milestone 4
             if k == CursorKind.CXX_BASE_SPECIFIER:
                 raise UnsupportedConstructError("class inheritance", cursor.location.line - line_shift)
+
+            # Wrap new expressions: new T -> ::algolens::al_new(new T, "T", line)
+            if k == CursorKind.CXX_NEW_EXPR:
+                start_off = cursor.extent.start.offset - offset_shift
+                end_off = cursor.extent.end.offset - offset_shift
+                new_text = source_code[start_off:end_off]
+                t_spelling = cursor.type.spelling
+                if t_spelling.endswith("*"):
+                    t_spelling = t_spelling[:-1].strip()
+                t_name = t_spelling.replace("struct ", "").replace("class ", "").strip()
+                if not t_name:
+                    t_name = "Object"
+                new_line = cursor.location.line - line_shift
+                wrapped = f"::algolens::al_new({new_text}, \"{t_name}\", {new_line})"
+                edits.append(SourceEdit(start_off, wrapped, priority=10, is_replace=True, end_offset=end_off))
 
         # Process Function Declarations and their Compound Statements
         for cursor in tu.cursor.get_children():
@@ -162,7 +188,7 @@ class CPPInstrumentor:
         stmt_start = stmt.extent.start.offset - offset_shift
         stmt_end = stmt.extent.end.offset - offset_shift
 
-        # 1. Variable Declaration: int x = 5;
+        # 1. Variable Declaration: int x = 5; or Node* n = new Node;
         if k == CursorKind.DECL_STMT:
             edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
 
@@ -177,7 +203,7 @@ class CPPInstrumentor:
                             decl_hook = f"\n    AL_VAR_DECLARE(\"{var_name}\", \"{type_str}\", {var_name}, {line});"
                             edits.append(SourceEdit(ins_pos, decl_hook, priority=2))
 
-        # 2. Assignment / Binary Operator: x = 10; or arr[i] = val;
+        # 2. Assignment / Binary Operator: x = 10; or n->val = 10; or *p = 10; or m["k"] = v;
         elif k == CursorKind.BINARY_OPERATOR:
             edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
 
@@ -187,19 +213,97 @@ class CPPInstrumentor:
                 end_pos = source_code.find(";", stmt_end - 1)
                 if end_pos != -1:
                     ins_pos = end_pos + 1
+                    # 2a. Simple scalar write: x = 10;
                     if lhs.kind == CursorKind.DECL_REF_EXPR:
                         var_name = lhs.spelling
                         write_hook = f"\n    AL_VAR_WRITE(\"{var_name}\", {var_name}, {line});"
                         edits.append(SourceEdit(ins_pos, write_hook, priority=2))
+
+                    # 2b. Array or Map index: arr[i] = v; or m["k"] = v;
                     elif lhs.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
                         arr_children = list(lhs.get_children())
                         if len(arr_children) >= 2:
                             arr_name = arr_children[0].spelling
                             idx_str = source_code[arr_children[1].extent.start.offset - offset_shift : arr_children[1].extent.end.offset - offset_shift]
-                            arr_hook = f"\n    AL_ARRAY_WRITE(\"{arr_name}\", ({idx_str}), {arr_name}[({idx_str})], {line});"
+                            arr_type = arr_children[0].type.spelling.lower()
+                            if "map" in arr_type:
+                                arr_hook = f"\n    AL_MAP_INSERT(\"{arr_name}\", ({idx_str}), {arr_name}[({idx_str})], {line});"
+                            else:
+                                arr_hook = f"\n    AL_ARRAY_WRITE(\"{arr_name}\", ({idx_str}), {arr_name}[({idx_str})], {line});"
                             edits.append(SourceEdit(ins_pos, arr_hook, priority=2))
 
-        # 3. Return Statement: return expr;
+                    # 2c. Map operator[] call on LHS: m["alpha"] = 1;
+                    elif lhs.kind == CursorKind.CALL_EXPR and lhs.spelling == "operator[]":
+                        op_children = list(lhs.get_children())
+                        if len(op_children) >= 2:
+                            map_name = op_children[0].spelling
+                            key_str = source_code[op_children[1].extent.start.offset - offset_shift : op_children[1].extent.end.offset - offset_shift]
+                            map_hook = f"\n    AL_MAP_INSERT(\"{map_name}\", ({key_str}), {map_name}[({key_str})], {line});"
+                            edits.append(SourceEdit(ins_pos, map_hook, priority=2))
+
+                    # 2d. Struct / Class member write: n->val = 10; or n.val = 10;
+                    elif lhs.kind == CursorKind.MEMBER_REF_EXPR:
+                        field_name = lhs.spelling
+                        mem_children = list(lhs.get_children())
+                        if mem_children:
+                            obj_expr = source_code[mem_children[0].extent.start.offset - offset_shift : mem_children[0].extent.end.offset - offset_shift]
+                            is_ptr = mem_children[0].type.kind == TypeKind.POINTER
+                            obj_arg = obj_expr if is_ptr else f"(&({obj_expr}))"
+                            lhs_str = source_code[lhs.extent.start.offset - offset_shift : lhs.extent.end.offset - offset_shift]
+                            field_hook = f"\n    AL_FIELD_WRITE({obj_arg}, \"{field_name}\", ({lhs_str}), {line});"
+                            edits.append(SourceEdit(ins_pos, field_hook, priority=2))
+
+                    # 2e. Pointer dereference write: *p = 10;
+                    elif lhs.kind == CursorKind.UNARY_OPERATOR:
+                        un_children = list(lhs.get_children())
+                        if un_children:
+                            ptr_expr = source_code[un_children[0].extent.start.offset - offset_shift : un_children[0].extent.end.offset - offset_shift]
+                            deref_hook = f"\n    AL_DEREF_WRITE({ptr_expr}, *({ptr_expr}), {line});"
+                            edits.append(SourceEdit(ins_pos, deref_hook, priority=2))
+
+        # 3. Dynamic Deallocation: delete ptr;
+        elif k == CursorKind.CXX_DELETE_EXPR:
+            edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
+            del_children = list(stmt.get_children())
+            if del_children:
+                ptr_str = source_code[del_children[0].extent.start.offset - offset_shift : del_children[0].extent.end.offset - offset_shift]
+                replacement = f"delete ::algolens::al_delete({ptr_str}, {line})"
+                end_pos = source_code.find(";", stmt_start)
+                if end_pos != -1:
+                    edits.append(SourceEdit(stmt_start, replacement, priority=5, is_replace=True, end_offset=end_pos))
+
+        # 4. Container Operations or Function Calls: v.push_back(x); or st.push(x); or st.pop();
+        elif k == CursorKind.CALL_EXPR:
+            edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
+            end_pos = source_code.find(";", stmt_end - 1)
+            if end_pos != -1:
+                ins_pos = end_pos + 1
+                call_children = list(stmt.get_children())
+                if call_children and call_children[0].kind == CursorKind.MEMBER_REF_EXPR:
+                    mem_ref = call_children[0]
+                    method_name = mem_ref.spelling
+                    mem_children = list(mem_ref.get_children())
+                    if mem_children:
+                        c_name = mem_children[0].spelling
+                        c_type = mem_children[0].type.spelling.lower()
+                        if method_name == "push_back" and len(call_children) >= 2:
+                            arg_str = source_code[call_children[1].extent.start.offset - offset_shift : call_children[1].extent.end.offset - offset_shift]
+                            hook = f"\n    AL_CONTAINER_PUSH(\"{c_name}\", \"ARRAY\", ({arg_str}), {line});"
+                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+                        elif method_name == "push" and len(call_children) >= 2:
+                            c_kind = "QUEUE" if "queue" in c_type else "STACK"
+                            arg_str = source_code[call_children[1].extent.start.offset - offset_shift : call_children[1].extent.end.offset - offset_shift]
+                            hook = f"\n    AL_CONTAINER_PUSH(\"{c_name}\", \"{c_kind}\", ({arg_str}), {line});"
+                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+                        elif method_name == "pop_back":
+                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"ARRAY\", 0, {line});"
+                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+                        elif method_name == "pop":
+                            c_kind = "QUEUE" if "queue" in c_type else "STACK"
+                            hook = f"\n    AL_CONTAINER_POP(\"{c_name}\", \"{c_kind}\", 0, {line});"
+                            edits.append(SourceEdit(ins_pos, hook, priority=2))
+
+        # 5. Return Statement: return expr;
         elif k == CursorKind.RETURN_STMT:
             children = list(stmt.get_children())
             end_pos = source_code.find(";", stmt_start)
@@ -214,7 +318,7 @@ class CPPInstrumentor:
 
                 edits.append(SourceEdit(stmt_start, replacement, priority=5, is_replace=True, end_offset=end_pos + 1))
 
-        # 4. If Statement: if (cond) { ... } else { ... }
+        # 6. If Statement: if (cond) { ... } else { ... }
         elif k == CursorKind.IF_STMT:
             edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
             children = list(stmt.get_children())
@@ -244,7 +348,7 @@ class CPPInstrumentor:
                             edits.append(SourceEdit(end_semi + 1, "\n}\n", priority=-1))
                     ret_counter = self._instrument_stmt(else_branch, source_code, edits, ret_counter, offset_shift, line_shift)
 
-        # 5. Loops: For & While
+        # 7. Loops: For & While
         elif k in (CursorKind.FOR_STMT, CursorKind.WHILE_STMT):
             edits.append(SourceEdit(stmt_start, f"\n    AL_STEP_LINE({line});\n    ", priority=0))
             children = list(stmt.get_children())
@@ -261,7 +365,7 @@ class CPPInstrumentor:
                         edits.append(SourceEdit(end_semi + 1, "\n    }\n", priority=-1))
                     ret_counter = self._instrument_stmt(body, source_code, edits, ret_counter, offset_shift, line_shift)
 
-        # 6. Nested Compound Statement / Scope: { ... }
+        # 8. Nested Compound Statement / Scope: { ... }
         elif k == CursorKind.COMPOUND_STMT:
             scope_start = stmt_start + 1
             scope_end = stmt_end - 1

@@ -381,14 +381,31 @@ class UniversalStateReducer:
             field = payload["field"]
             old_raw = payload.get("old_value")
             if isinstance(old_raw, dict) and "kind" in old_raw:
-                old_u = ObjectRef(**old_raw) if old_raw["kind"] == "object_ref" else (NullRef() if old_raw["kind"] == "null_ref" else PrimitiveValue(**old_raw))
+                k = old_raw["kind"]
+                if k == "object_ref":
+                    old_u = ObjectRef(**old_raw)
+                elif k == "null_ref":
+                    old_u = NullRef()
+                elif k == "dangling_ref":
+                    old_u = DanglingRef(**old_raw)
+                elif k == "uninitialized":
+                    old_u = Uninitialized()
+                elif k == "primitive":
+                    old_u = PrimitiveValue(**old_raw)
+                else:
+                    old_u = Uninitialized()
+            elif isinstance(old_raw, UniversalValue):
+                old_u = old_raw
             elif isinstance(old_raw, str) and (old_raw.startswith("obj_") or old_raw.startswith("0x")):
                 old_u = NullRef() if old_raw in ("0x0000", "nullptr", "NULL") else ObjectRef(object_id=old_raw)
             else:
                 old_u = PrimitiveValue(type_name="unknown", value=old_raw)
 
             if obj_id in state.heap:
-                state.heap[obj_id].fields[field] = old_u
+                if isinstance(old_u, Uninitialized):
+                    state.heap[obj_id].fields.pop(field, None)
+                else:
+                    state.heap[obj_id].fields[field] = old_u
 
         elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
             obj_id = payload["object_id"]
