@@ -8,7 +8,7 @@ import copy
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from event_models import (
-    AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, Uninitialized
+    AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized
 )
 
 
@@ -43,6 +43,7 @@ class UniversalHeapObject(BaseModel):
     fields: Dict[str, UniversalValue] = Field(default_factory=dict)
     elements: List[UniversalValue] = Field(default_factory=list)
     meta: Dict[str, Any] = Field(default_factory=dict)
+    is_alive: bool = True
 
 
 class UniversalRuntimeState(BaseModel):
@@ -290,9 +291,10 @@ class UniversalStateReducer:
             if obj_id in state.heap:
                 state.heap[obj_id].fields[field] = u_val
 
-        elif ev_type == "OBJECT_FREE":
+        elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
             obj_id = payload["object_id"]
-            state.heap.pop(obj_id, None)
+            if obj_id in state.heap:
+                state.heap[obj_id].is_alive = False
 
         # 4. Containers
         elif ev_type == "CONTAINER_OP":
@@ -387,6 +389,24 @@ class UniversalStateReducer:
 
             if obj_id in state.heap:
                 state.heap[obj_id].fields[field] = old_u
+
+        elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
+            obj_id = payload["object_id"]
+            if obj_id in state.heap:
+                state.heap[obj_id].is_alive = True
+            elif "old_fields" in payload:
+                old_f = {}
+                for fk, fv in (payload.get("old_fields") or {}).items():
+                    if isinstance(fv, dict) and "kind" in fv:
+                        old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else PrimitiveValue(**fv))
+                    else:
+                        old_f[fk] = PrimitiveValue(type_name="unknown", value=fv)
+                state.heap[obj_id] = UniversalHeapObject(
+                    object_id=obj_id,
+                    type_name=payload.get("type_name", "Object"),
+                    fields=old_f,
+                    is_alive=True
+                )
 
         elif ev_type == "OBJECT_ALLOCATE":
             obj_id = payload["object_id"]

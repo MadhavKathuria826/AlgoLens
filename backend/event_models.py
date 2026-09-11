@@ -36,10 +36,14 @@ class ObjectRef(BaseModel):
 class NullRef(BaseModel):
     kind: Literal["null_ref"] = "null_ref"
 
+class DanglingRef(BaseModel):
+    kind: Literal["dangling_ref"] = "dangling_ref"
+    last_known_object_id: str
+
 class Uninitialized(BaseModel):
     kind: Literal["uninitialized"] = "uninitialized"
 
-UniversalValue = Union[PrimitiveValue, ObjectRef, NullRef, Uninitialized]
+UniversalValue = Union[PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized]
 
 
 # --- Helper Value Factories ---
@@ -120,6 +124,12 @@ class ObjectMutatePayload(BaseModel):
     field: str
     old_value: UniversalValue
     new_value: UniversalValue
+
+class ObjectDeallocatePayload(BaseModel):
+    object_id: str
+    type_name: Optional[str] = None
+    old_fields: Optional[Dict[str, UniversalValue]] = None
+    debug_meta: Optional[Dict[str, Any]] = None
 
 class ObjectFreePayload(BaseModel):
     object_id: str

@@ -7,7 +7,7 @@ import copy
 import json
 from typing import Dict, Any, List, Optional
 from models import Step, VisualizationData
-from event_models import AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, Uninitialized
+from event_models import AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized
 from state_reducer import UniversalRuntimeState, UniversalStateReducer
 
 
@@ -29,6 +29,8 @@ class EventToStepAdapter:
             return val.object_id
         elif isinstance(val, NullRef):
             return "0x0000"
+        elif isinstance(val, DanglingRef):
+            return f"<dangling:{val.last_known_object_id}>"
         elif isinstance(val, Uninitialized):
             return None
         elif isinstance(val, dict):
@@ -51,7 +53,10 @@ class EventToStepAdapter:
                 c_data = self.state.containers[name]
                 locals_snapshot[name] = copy.deepcopy(c_data["elements"])
             else:
-                locals_snapshot[name] = self.serialize_value(binding.value)
+                if isinstance(binding.value, ObjectRef) and binding.value.object_id in self.state.heap and not self.state.heap[binding.value.object_id].is_alive:
+                    locals_snapshot[name] = f"<dangling:{binding.value.object_id}>"
+                else:
+                    locals_snapshot[name] = self.serialize_value(binding.value)
 
         # Also populate any containers not directly in bindings
         for c_id, c_data in self.state.containers.items():
@@ -64,6 +69,8 @@ class EventToStepAdapter:
         is_linked_list = False
 
         for obj_id, heap_obj in self.state.heap.items():
+            if not heap_obj.is_alive:
+                continue
             fields_dict = {}
             for f_name, f_val in heap_obj.fields.items():
                 fields_dict[f_name] = self.serialize_value(f_val)
