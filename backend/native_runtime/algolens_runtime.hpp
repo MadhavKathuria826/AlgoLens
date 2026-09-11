@@ -1,16 +1,24 @@
 #pragma once
 /**
- * AlgoLens Native C++ Runtime Instrumentation Header
+ * AlgoLens Native C++ Runtime Instrumentation Header (Milestone 4)
  * 
- * Embeds observation hooks into natively compiled C++ programs.
- * Emits AlgoLens Event Protocol v2.1 JSON Lines stream.
- * Isolates event output with the [ALGOLENS_EVENT] transport prefix.
+ * Provides:
+ * 1. Native ObjectRegistry mapping physical memory addresses to synthetic AlgoLens Object IDs (obj_X).
+ * 2. Dynamic memory allocation & deallocation tracking (OBJECT_ALLOCATE / OBJECT_DEALLOCATE).
+ * 3. Dangling pointer detection and pointer aliasing.
+ * 4. Struct/Class field mutation tracking (OBJECT_MUTATE).
+ * 5. Pointer dereference mutation tracking.
+ * 6. Standard library container semantic instrumentation (vector, stack, queue, map, unordered_map).
+ * 7. AlgoLens Event Protocol v2.1 emission via [ALGOLENS_EVENT] stdout transport.
  */
 
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <stack>
+#include <queue>
+#include <map>
 #include <unordered_map>
 #include <chrono>
 #include <iomanip>
@@ -18,6 +26,10 @@
 #include <type_traits>
 
 namespace algolens {
+
+// Forward declarations
+class ObjectRegistry;
+class Runtime;
 
 // --- JSON Helpers ---
 inline std::string escape_json(const std::string& s) {
@@ -38,6 +50,109 @@ inline std::string escape_json(const std::string& s) {
     }
     return o.str();
 }
+
+// --- Object Registry & Entry ---
+struct ObjectEntry {
+    std::string object_id;
+    uintptr_t native_address = 0;
+    std::string type_name;
+    size_t size_bytes = 0;
+    int allocated_line = 0;
+    int creation_seq = 0;
+    bool alive = false;
+    std::unordered_map<std::string, std::string> fields; // field_name -> serialized JSON
+};
+
+class ObjectRegistry {
+public:
+    static ObjectRegistry& instance() {
+        static ObjectRegistry inst;
+        return inst;
+    }
+
+    int object_counter = 0;
+    std::unordered_map<uintptr_t, std::string> active_addr_to_id;
+    std::unordered_map<uintptr_t, std::string> dead_addr_to_last_id;
+    std::unordered_map<std::string, ObjectEntry> registry;
+
+    std::string register_allocation(uintptr_t addr, const std::string& type_name, size_t size_bytes, int line) {
+        if (!addr) return "";
+
+        std::string obj_id = "obj_" + std::to_string(object_counter++);
+        active_addr_to_id[addr] = obj_id;
+        dead_addr_to_last_id.erase(addr); // Pointer reuse: clean any old dead record for this address
+
+        ObjectEntry entry;
+        entry.object_id = obj_id;
+        entry.native_address = addr;
+        entry.type_name = type_name;
+        entry.size_bytes = size_bytes;
+        entry.allocated_line = line;
+        entry.creation_seq = object_counter;
+        entry.alive = true;
+
+        registry[obj_id] = entry;
+        return obj_id;
+    }
+
+    std::string get_or_register_address(uintptr_t addr, const std::string& fallback_type = "Object") {
+        if (!addr) return "";
+        auto it = active_addr_to_id.find(addr);
+        if (it != active_addr_to_id.end()) {
+            return it->second;
+        }
+        return register_allocation(addr, fallback_type, 0, 0);
+    }
+
+    std::string get_ref_json(uintptr_t addr) {
+        if (!addr) {
+            return "{\"kind\":\"null_ref\"}";
+        }
+        auto it = active_addr_to_id.find(addr);
+        if (it != active_addr_to_id.end()) {
+            return "{\"kind\":\"object_ref\",\"object_id\":\"" + it->second + "\"}";
+        }
+        auto dead_it = dead_addr_to_last_id.find(addr);
+        if (dead_it != dead_addr_to_last_id.end()) {
+            return "{\"kind\":\"dangling_ref\",\"last_known_object_id\":\"" + dead_it->second + "\"}";
+        }
+        // Unknown pointer registered on-the-fly
+        std::string new_id = register_allocation(addr, "Object", 0, 0);
+        return "{\"kind\":\"object_ref\",\"object_id\":\"" + new_id + "\"}";
+    }
+
+    bool deallocate(uintptr_t addr, std::string& out_obj_id, std::string& out_type, std::string& out_old_fields_json) {
+        if (!addr) return false;
+        auto it = active_addr_to_id.find(addr);
+        if (it == active_addr_to_id.end()) {
+            return false; // Unknown or double delete
+        }
+        out_obj_id = it->second;
+        active_addr_to_id.erase(it);
+        dead_addr_to_last_id[addr] = out_obj_id;
+
+        auto reg_it = registry.find(out_obj_id);
+        if (reg_it != registry.end()) {
+            reg_it->second.alive = false;
+            out_type = reg_it->second.type_name;
+            
+            std::ostringstream ss;
+            ss << "{";
+            bool first = true;
+            for (const auto& pair : reg_it->second.fields) {
+                if (!first) ss << ",";
+                ss << "\"" << escape_json(pair.first) << "\":" << pair.second;
+                first = false;
+            }
+            ss << "}";
+            out_old_fields_json = ss.str();
+        } else {
+            out_type = "Object";
+            out_old_fields_json = "{}";
+        }
+        return true;
+    }
+};
 
 // Universal value serializer overloads
 inline std::string value_to_json(bool v) {
@@ -100,16 +215,14 @@ value_to_json(T ptr) {
     if (!ptr) {
         return "{\"kind\":\"null_ref\"}";
     }
-    std::ostringstream ss;
-    ss << "0x" << std::hex << reinterpret_cast<uintptr_t>(ptr);
-    return "{\"kind\":\"object_ref\",\"object_id\":\"" + ss.str() + "\"}";
+    return ObjectRegistry::instance().get_ref_json(reinterpret_cast<uintptr_t>(ptr));
 }
 
 // Fallback for unspecialized types
 template <typename T>
 typename std::enable_if<!std::is_pointer<T>::value && !std::is_arithmetic<T>::value, std::string>::type
 value_to_json(const T&) {
-    return "{\"kind\":\"primitive\",\"type_name\":\"unknown\",\"value\":\"<unsupported_value>\"}";
+    return "{\"kind\":\"primitive\",\"type_name\":\"unknown\",\"value\":\"<object>\"}";
 }
 
 
@@ -183,7 +296,7 @@ public:
         last_emitted_line = current_line;
     }
 
-    // --- Hooks ---
+    // --- Core Hooks ---
 
     void on_prog_start(const char* entry_func, int line) {
         std::string payload = "{\"entry_function\":\"" + escape_json(entry_func) + "\",\"args\":{}}";
@@ -281,6 +394,119 @@ public:
     }
 };
 
+// --- Dynamic Memory & Object Mutation Function Wrappers ---
+
+template <typename T>
+inline T* al_new(T* ptr, const char* type_name, int line) {
+    if (ptr) {
+        uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+        std::string obj_id = ObjectRegistry::instance().register_allocation(
+            addr,
+            type_name,
+            sizeof(T),
+            line
+        );
+        std::ostringstream ss;
+        ss << "0x" << std::hex << addr;
+        std::string payload = "{\"object_id\":\"" + obj_id + "\","
+                            + "\"type_name\":\"" + escape_json(type_name) + "\","
+                            + "\"fields\":{},"
+                            + "\"debug_meta\":{\"native_address\":\"" + ss.str() + "\",\"size\":" + std::to_string(sizeof(T)) + "}}";
+        Runtime::instance().emit_raw_event("OBJECT_ALLOCATE", line, payload);
+    }
+    return ptr;
+}
+
+template <typename T>
+inline T* al_delete(T* ptr, int line) {
+    if (ptr) {
+        std::string obj_id, type_name, old_fields_json;
+        uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+        if (ObjectRegistry::instance().deallocate(addr, obj_id, type_name, old_fields_json)) {
+            std::ostringstream ss;
+            ss << "0x" << std::hex << addr;
+            std::string payload = "{\"object_id\":\"" + obj_id + "\","
+                                + "\"type_name\":\"" + escape_json(type_name) + "\","
+                                + "\"old_fields\":" + old_fields_json + ","
+                                + "\"debug_meta\":{\"native_address\":\"" + ss.str() + "\"}}";
+            Runtime::instance().emit_raw_event("OBJECT_DEALLOCATE", line, payload);
+        }
+    }
+    return ptr;
+}
+
+template <typename ObjT, typename ValT>
+inline void al_field_write(ObjT* obj_ptr, const char* field_name, const ValT& new_val, int line) {
+    if (!obj_ptr) return;
+    uintptr_t addr = reinterpret_cast<uintptr_t>(obj_ptr);
+    std::string obj_id = ObjectRegistry::instance().get_or_register_address(addr);
+    
+    auto& reg = ObjectRegistry::instance().registry[obj_id];
+    auto it = reg.fields.find(field_name);
+    std::string old_val_json = (it != reg.fields.end()) ? it->second : "{\"kind\":\"uninitialized\"}";
+    std::string new_val_json = value_to_json(new_val);
+    reg.fields[field_name] = new_val_json;
+
+    std::string payload = "{\"object_id\":\"" + obj_id + "\","
+                        + "\"field\":\"" + escape_json(field_name) + "\","
+                        + "\"old_value\":" + old_val_json + ","
+                        + "\"new_value\":" + new_val_json + "}";
+    Runtime::instance().emit_raw_event("OBJECT_MUTATE", line, payload);
+}
+
+template <typename PtrT, typename ValT>
+inline void al_deref_write(PtrT* ptr, const ValT& new_val, int line) {
+    if (!ptr) return;
+    uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+    std::string obj_id = ObjectRegistry::instance().get_or_register_address(addr);
+    
+    auto& reg = ObjectRegistry::instance().registry[obj_id];
+    auto it = reg.fields.find("value");
+    std::string old_val_json = (it != reg.fields.end()) ? it->second : "{\"kind\":\"uninitialized\"}";
+    std::string new_val_json = value_to_json(new_val);
+    reg.fields["value"] = new_val_json;
+
+    std::string payload = "{\"object_id\":\"" + obj_id + "\","
+                        + "\"field\":\"value\","
+                        + "\"old_value\":" + old_val_json + ","
+                        + "\"new_value\":" + new_val_json + "}";
+    Runtime::instance().emit_raw_event("OBJECT_MUTATE", line, payload);
+}
+
+// --- Container Semantic Operation Wrappers ---
+
+template <typename T>
+inline void al_container_push(const char* name, const char* kind, const T& val, int line) {
+    std::string val_json = value_to_json(val);
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"" + escape_json(kind) + "\","
+                        + "\"op\":\"PUSH\","
+                        + "\"values\":[" + val_json + "]}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
+template <typename T>
+inline void al_container_pop(const char* name, const char* kind, const T& popped_val, int line) {
+    std::string val_json = value_to_json(popped_val);
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"" + escape_json(kind) + "\","
+                        + "\"op\":\"POP\","
+                        + "\"old_values\":[" + val_json + "]}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
+template <typename K, typename V>
+inline void al_map_insert(const char* name, const K& key, const V& val, int line) {
+    std::ostringstream ss_k;
+    ss_k << key;
+    std::string val_json = value_to_json(val);
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"MAP\","
+                        + "\"op\":\"INSERT\","
+                        + "\"meta\":{\"" + escape_json(ss_k.str()) + "\":" + val_json + "}}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
 } // namespace algolens
 
 // Global Macros for Concise Instrumentation
@@ -294,3 +520,8 @@ public:
 #define AL_VAR_DECLARE(name, type_str, val, line) ::algolens::Runtime::instance().on_var_declare(name, type_str, val, line)
 #define AL_VAR_WRITE(name, val, line) ::algolens::Runtime::instance().on_var_write(name, val, line)
 #define AL_ARRAY_WRITE(name, index, val, line) ::algolens::Runtime::instance().on_array_write(name, index, val, line)
+#define AL_FIELD_WRITE(obj_ptr, field_name, val, line) ::algolens::al_field_write(obj_ptr, field_name, val, line)
+#define AL_DEREF_WRITE(ptr, val, line) ::algolens::al_deref_write(ptr, val, line)
+#define AL_CONTAINER_PUSH(name, kind, val, line) ::algolens::al_container_push(name, kind, val, line)
+#define AL_CONTAINER_POP(name, kind, val, line) ::algolens::al_container_pop(name, kind, val, line)
+#define AL_MAP_INSERT(name, key, val, line) ::algolens::al_map_insert(name, key, val, line)
