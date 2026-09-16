@@ -283,7 +283,8 @@ class CPPInstrumentor:
             )
         elif entry_func in found_functions:
             is_void = found_functions.get(entry_func, False)
-            call_code = f"    {entry_func}();\n    return 0;\n" if is_void else f"    return {entry_func}();\n"
+            args_str = ", ".join(str(a) for a in args) if args else ""
+            call_code = f"    {entry_func}({args_str});\n    return 0;\n" if is_void else f"    return {entry_func}({args_str});\n"
             driver = (
                 export_decl +
                 f"AL_EXPORT int algolens_entry() {{\n"

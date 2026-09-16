@@ -24,6 +24,7 @@ if BACKEND_DIR not in sys.path:
 
 from event_models import AlgoLensEvent
 from cpp_instrumentor import CPPInstrumentor, UnsupportedConstructError
+from compilation_cache import CompilationCache, CacheStatus, CacheKeySpec
 
 
 class NativeExecutionResult(BaseModel):
@@ -40,17 +41,54 @@ class NativeExecutionResult(BaseModel):
     total_time_ms: float = 0.0
     instrumented_code: Optional[str] = None
     error_message: Optional[str] = None
+    cache_status: Optional[str] = None
+    cache_key: Optional[str] = None
+    cache_lookup_time_ms: float = 0.0
+    instrumentation_time_ms: float = 0.0
 
 
 class CompiledBinary:
-    def __init__(self, binary_dir: str, exe_path: str, compile_time_ms: float, instrumented_code: str):
+    def __init__(
+        self,
+        binary_dir: str,
+        exe_path: str,
+        compile_time_ms: float,
+        instrumented_code: str,
+        is_cached: bool = False,
+        cache_status: str = "CACHE_MISS",
+        cache_key: Optional[str] = None
+    ):
         self.binary_dir = binary_dir
         self.exe_path = exe_path
         self.compile_time_ms = compile_time_ms
         self.instrumented_code = instrumented_code
+        self.is_cached = is_cached
+        self.cache_status = cache_status
+        self.cache_key = cache_key
+        self.instrumentation_time_ms: float = 0.0
+        self.cache_lookup_time_ms: float = 0.0
 
     def cleanup(self):
-        shutil.rmtree(self.binary_dir, ignore_errors=True)
+        if not self.is_cached:
+            shutil.rmtree(self.binary_dir, ignore_errors=True)
+
+
+class LanguageRuntimeProducer(ABC):
+    """
+    Abstract interface for language-specific runtime producers.
+    Coordinates language source instrumentation, compilation/caching (if applicable),
+    and execution backend invocation to produce AlgoLensEvent streams.
+    """
+    @abstractmethod
+    def execute_program(
+        self,
+        source_code: str,
+        entry_func: str = "main",
+        args: List[Any] = None,
+        timeout_sec: float = 12.0,
+        max_events: int = 50000
+    ) -> NativeExecutionResult:
+        pass
 
 
 def _demultiplex_output(raw_stdout: Optional[str], event_prefix: str, max_events: int) -> Tuple[List[AlgoLensEvent], str]:
@@ -247,10 +285,10 @@ class DevelopmentInMemoryPEBackend(NativeExecutionBackend):
         )
 
 
-class NativeCompilationPipeline:
+class NativeCompilationPipeline(LanguageRuntimeProducer):
     """
     Manages native C++ compilation, execution, and event capture.
-    Coordinates source-level AST instrumentation, native compilation via host compiler,
+    Coordinates source-level AST instrumentation, deterministic compilation caching,
     and dispatch to the configured NativeExecutionBackend.
     """
 
@@ -259,7 +297,9 @@ class NativeCompilationPipeline:
     def __init__(
         self,
         compiler_override: Optional[str] = None,
-        backend: Optional[NativeExecutionBackend] = None
+        backend: Optional[NativeExecutionBackend] = None,
+        enable_cache: bool = True,
+        cache: Optional[CompilationCache] = None
     ):
         self.instrumentor = CPPInstrumentor()
         self.compiler_path, self.compiler_name, self.compiler_version = self._detect_compiler(compiler_override)
@@ -267,6 +307,8 @@ class NativeCompilationPipeline:
         self.build_cache_dir = os.path.join(BACKEND_DIR, ".tmp_builds")
         os.makedirs(self.build_cache_dir, exist_ok=True)
         self.backend = backend or self._select_default_backend()
+        self.enable_cache = enable_cache
+        self.cache = cache or CompilationCache()
 
     def _select_default_backend(self) -> NativeExecutionBackend:
         """
@@ -323,10 +365,11 @@ class NativeCompilationPipeline:
         args: List[Any] = None
     ) -> Tuple[Optional[CompiledBinary], Optional[str], float, Optional[str]]:
         """
-        Instruments and compiles C++ code to a native binary without executing it.
+        Instruments and compiles C++ code to a native binary with deterministic caching.
         Returns (CompiledBinary or None, compiler_diagnostics, compile_time_ms, error_message).
         """
         # Step 1: Instrument Source Code
+        t_inst_start = time.perf_counter()
         try:
             instrumented = self.instrumentor.instrument(source_code, entry_func=entry_func, args=args)
         except UnsupportedConstructError as e:
@@ -335,14 +378,57 @@ class NativeCompilationPipeline:
             return None, None, 0.0, f"Syntax Error during AST analysis: {e}"
         except Exception as e:
             return None, None, 0.0, f"Instrumentation failed: {e}"
+        inst_ms = (time.perf_counter() - t_inst_start) * 1000.0
 
-        # Step 2: Isolated Compilation in Temporary Directory
-        temp_dir = tempfile.mkdtemp(prefix="algolens_native_", dir=self.build_cache_dir)
-        src_path = os.path.join(temp_dir, "app.cpp")
         is_shared = getattr(self.backend, "requires_shared_library", False)
         bin_ext = (".dll" if sys.platform == "win32" else ".so") if is_shared else (".exe" if sys.platform == "win32" else "")
-        unique_id = f"{os.getpid()}_{int(time.perf_counter()*1000000 % 10000000)}"
-        bin_path = os.path.join(temp_dir, f"algolens_runner_{unique_id}{bin_ext}")
+
+        compile_flags = [
+            "-std=c++17",
+            "-O0",
+            "-g",
+            "-static",
+            f"-I{self.runtime_header_dir}"
+        ]
+        if is_shared:
+            compile_flags.insert(4, "-shared")
+
+        # Step 2: Cache Lookup (if enabled)
+        cache_key = None
+        cache_status = CacheStatus.CACHE_MISS
+        lookup_ms = 0.0
+        spec = None
+        if self.enable_cache:
+            t_look_start = time.perf_counter()
+            spec = self.cache.build_spec(
+                source_code=source_code,
+                instrumented_code=instrumented,
+                compiler_name=self.compiler_name,
+                compiler_version=self.compiler_version,
+                compilation_flags=compile_flags,
+                entry_func=entry_func,
+                requires_shared=is_shared
+            )
+            cache_status, cached_art, cache_key = self.cache.lookup(spec)
+            lookup_ms = (time.perf_counter() - t_look_start) * 1000.0
+
+            if cache_status == CacheStatus.CACHE_HIT and cached_art:
+                cb = CompiledBinary(
+                    binary_dir=cached_art.cache_dir,
+                    exe_path=cached_art.artifact_path,
+                    compile_time_ms=0.0,  # 0 ms compilation time on warm hit
+                    instrumented_code=instrumented,
+                    is_cached=True,
+                    cache_status=cache_status.value,
+                    cache_key=cache_key
+                )
+                cb.instrumentation_time_ms = inst_ms
+                cb.cache_lookup_time_ms = lookup_ms
+                return cb, None, 0.0, None
+
+        # Step 3: Staged Compilation (on Cache Miss / Invalidation)
+        staging_dir, src_path, bin_prefix = self.cache.prepare_staging()
+        staged_bin_path = os.path.join(staging_dir, f"{bin_prefix}{bin_ext}")
 
         try:
             with open(src_path, "w", encoding="utf-8") as f:
@@ -350,17 +436,11 @@ class NativeCompilationPipeline:
 
             compile_cmd = [
                 self.compiler_path,
-                "-std=c++17",
-                "-O0",
-                "-g",
-                "-static",
-                f"-I{self.runtime_header_dir}",
+                *compile_flags,
                 src_path,
                 "-o",
-                bin_path
+                staged_bin_path
             ]
-            if is_shared:
-                compile_cmd.insert(4, "-shared")
 
             compile_res = None
             compile_ms = 0.0
@@ -376,14 +456,47 @@ class NativeCompilationPipeline:
                 break
 
             if compile_res.returncode != 0:
-                shutil.rmtree(temp_dir, ignore_errors=True)
+                shutil.rmtree(staging_dir, ignore_errors=True)
                 return None, compile_res.stderr, compile_ms, f"Native compilation failed with exit code {compile_res.returncode}"
 
-            self._sign_and_unblock(bin_path)
-            return CompiledBinary(temp_dir, bin_path, compile_ms, instrumented), compile_res.stderr, compile_ms, None
+            self._sign_and_unblock(staged_bin_path)
+
+            if self.enable_cache and spec:
+                published_art = self.cache.publish(
+                    staging_dir=staging_dir,
+                    spec=spec,
+                    staged_bin_path=staged_bin_path,
+                    compile_time_ms=compile_ms,
+                    instrumented_code=instrumented
+                )
+                cb = CompiledBinary(
+                    binary_dir=published_art.cache_dir,
+                    exe_path=published_art.artifact_path,
+                    compile_time_ms=compile_ms,
+                    instrumented_code=instrumented,
+                    is_cached=True,
+                    cache_status=cache_status.value,
+                    cache_key=cache_key
+                )
+                cb.instrumentation_time_ms = inst_ms
+                cb.cache_lookup_time_ms = lookup_ms
+                return cb, compile_res.stderr, compile_ms, None
+            else:
+                cb = CompiledBinary(
+                    binary_dir=staging_dir,
+                    exe_path=staged_bin_path,
+                    compile_time_ms=compile_ms,
+                    instrumented_code=instrumented,
+                    is_cached=False,
+                    cache_status="CACHE_DISABLED",
+                    cache_key=None
+                )
+                cb.instrumentation_time_ms = inst_ms
+                cb.cache_lookup_time_ms = lookup_ms
+                return cb, compile_res.stderr, compile_ms, None
 
         except Exception as e:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            shutil.rmtree(staging_dir, ignore_errors=True)
             return None, None, 0.0, f"Compilation exception: {e}"
 
     def run_binary(
@@ -403,6 +516,10 @@ class NativeCompilationPipeline:
         )
         res.compiler_name = self.compiler_name
         res.compiler_version = self.compiler_version
+        res.cache_status = getattr(compiled, "cache_status", None)
+        res.cache_key = getattr(compiled, "cache_key", None)
+        res.cache_lookup_time_ms = getattr(compiled, "cache_lookup_time_ms", 0.0)
+        res.instrumentation_time_ms = getattr(compiled, "instrumentation_time_ms", 0.0)
         return res
 
     def compile_and_run(
@@ -414,7 +531,7 @@ class NativeCompilationPipeline:
         max_events: int = 50000
     ) -> NativeExecutionResult:
         """
-        Full native pipeline: instrument -> compile -> execute -> parse events.
+        Full native pipeline: instrument -> compile/cache -> execute -> parse events.
         Includes retry logic with fresh binary paths to overcome transient Windows
         Smart App Control rate limit locks (WinError 4551).
         """
@@ -447,6 +564,17 @@ class NativeCompilationPipeline:
                 compiled.cleanup()
 
         return last_res
+
+    def execute_program(
+        self,
+        source_code: str,
+        entry_func: str = "main",
+        args: List[Any] = None,
+        timeout_sec: float = 12.0,
+        max_events: int = 50000
+    ) -> NativeExecutionResult:
+        """Executes a C++ source program through the native compilation and execution pipeline."""
+        return self.compile_and_run(source_code, entry_func, args, timeout_sec, max_events)
 
     def compile_uninstrumented(
         self,
@@ -554,3 +682,7 @@ class NativeCompilationPipeline:
             return c_ms, exec_ms, r_res.exit_code if r_res else 0
         finally:
             compiled.cleanup()
+
+
+# Language runtime producer alias for C++
+CppRuntimeProducer = NativeCompilationPipeline

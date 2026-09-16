@@ -57,6 +57,7 @@ venv.bak/
 .mypy_cache/
 .ruff_cache/
 backend/.tmp_builds/
+backend/.build_cache/
 .tox/
 .coverage
 .coverage.*
