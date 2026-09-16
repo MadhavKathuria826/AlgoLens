@@ -1,14 +1,19 @@
 """
-AlgoLens In-Memory PE (Portable Executable) Loader for Windows.
+AlgoLens In-Memory PE (Portable Executable) Loader for Windows (Development-Only).
 
-Enables in-memory execution of locally compiled C++ shared libraries without
-triggering Windows Security, SmartScreen, or Windows 11 Smart App Control (SAC).
+WARNING: NON-PRODUCTION DEVELOPMENT WORKAROUND.
+This utility is intended exclusively for local Windows development environments where
+Windows 11 Smart App Control (SAC) blocks ephemeral, locally compiled test binaries
+during normal image loading (WinError 4551).
 
-Smart App Control monitors kernel-level image mapping (NtCreateSection with SEC_IMAGE).
-By loading the PE headers, mapping sections via VirtualAlloc, applying base relocations,
-resolving system imports (UCRT, KERNEL32), and registering the SEH exception table (.pdata)
-entirely in user memory, Code Integrity is never invoked, eliminating all "unknown publisher"
-and "untrusted app" blocks.
+The loader avoids the specific normal image-loading path (NtCreateSection with SEC_IMAGE)
+that triggered the observed SAC behavior during development testing by reading the DLL as
+raw bytes, mapping sections via VirtualAlloc, applying base relocations, resolving system
+imports (UCRT, KERNEL32), and registering the SEH exception table (.pdata) in user memory.
+
+IMPORTANT: This module does NOT provide a security sandbox, CPU/memory resource limits,
+or isolation against malicious code. Untrusted user C++ execution in production requires
+an isolated execution environment (e.g., container, microVM, or sandboxed runner).
 """
 
 import os
@@ -47,7 +52,7 @@ if sys.platform == "win32":
 def load_and_run_pe(dll_path: str, entry_symbol: str = "algolens_entry") -> None:
     """
     Loads a compiled PE DLL entirely into memory and calls the target entry symbol.
-    Eliminates all OS-level image loading checks and Smart App Control interference.
+    Avoids normal image-loading path (SEC_IMAGE) to bypass local SAC blocks during development.
     """
     if sys.platform != "win32":
         dll = ctypes.CDLL(dll_path)

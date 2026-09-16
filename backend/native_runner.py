@@ -13,6 +13,7 @@ import time
 import shutil
 import tempfile
 import subprocess
+from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel, Field
 
@@ -52,19 +53,231 @@ class CompiledBinary:
         shutil.rmtree(self.binary_dir, ignore_errors=True)
 
 
+def _demultiplex_output(raw_stdout: Optional[str], event_prefix: str, max_events: int) -> Tuple[List[AlgoLensEvent], str]:
+    """Helper to parse AlgoLens JSON lines and separate from user stdout."""
+    events: List[AlgoLensEvent] = []
+    user_lines: List[str] = []
+    if raw_stdout:
+        import json
+        for line in raw_stdout.splitlines():
+            if line.startswith(event_prefix):
+                json_str = line[len(event_prefix):].strip()
+                try:
+                    raw_dict = json.loads(json_str)
+                    events.append(AlgoLensEvent(**raw_dict))
+                    if len(events) >= max_events:
+                        break
+                except Exception:
+                    pass
+            else:
+                user_lines.append(line)
+    return events, "\n".join(user_lines)
+
+
+class NativeExecutionBackend(ABC):
+    """
+    Abstract execution backend for compiled AlgoLens native artifacts.
+    Decouples execution mechanisms (OS process, in-memory loader, future container)
+    from compiler, Event Protocol, UniversalStateReducer, and PlaybackEngine.
+    """
+    requires_shared_library: bool = False
+
+    @abstractmethod
+    def execute(
+        self,
+        compiled: CompiledBinary,
+        timeout_sec: float = 12.0,
+        max_events: int = 50000,
+        event_prefix: str = "[ALGOLENS_EVENT] "
+    ) -> NativeExecutionResult:
+        pass
+
+
+class SubprocessExecutionBackend(NativeExecutionBackend):
+    """
+    Standard native execution backend. Launches standalone native binaries directly
+    as isolated child processes with standard OS image mapping.
+    This is the production-standard architecture.
+    """
+    requires_shared_library: bool = False
+
+    def execute(
+        self,
+        compiled: CompiledBinary,
+        timeout_sec: float = 12.0,
+        max_events: int = 50000,
+        event_prefix: str = "[ALGOLENS_EVENT] "
+    ) -> NativeExecutionResult:
+        t_exec_start = time.perf_counter()
+        run_res = None
+        for attempt in range(8):
+            try:
+                run_res = subprocess.run(
+                    [compiled.exe_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_sec
+                )
+                break
+            except OSError as oe:
+                # Handle transient file locks or policy evaluations
+                if attempt < 7 and (getattr(oe, "winerror", None) in (4551, 5, 32) or "4551" in str(oe)):
+                    time.sleep(0.2 * (attempt + 1))
+                    continue
+                exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Process invocation failed: {oe}",
+                    compile_time_ms=compiled.compile_time_ms,
+                    execution_time_ms=exec_ms,
+                    total_time_ms=compiled.compile_time_ms + exec_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+            except subprocess.TimeoutExpired:
+                exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Execution timed out after {timeout_sec}s",
+                    compile_time_ms=compiled.compile_time_ms,
+                    execution_time_ms=exec_ms,
+                    total_time_ms=compiled.compile_time_ms + exec_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+
+        exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+        events, user_stdout = _demultiplex_output(run_res.stdout if run_res else "", event_prefix, max_events)
+
+        return NativeExecutionResult(
+            success=(run_res is not None and run_res.returncode == 0),
+            events=events,
+            user_stdout=user_stdout,
+            compiler_diagnostics="",
+            runtime_stderr=run_res.stderr if run_res else "",
+            exit_code=run_res.returncode if run_res else -1,
+            compile_time_ms=compiled.compile_time_ms,
+            execution_time_ms=exec_ms,
+            total_time_ms=compiled.compile_time_ms + exec_ms,
+            instrumented_code=compiled.instrumented_code,
+            error_message=None if (run_res and run_res.returncode == 0) else f"Runtime process exited with code {run_res.returncode if run_res else -1}"
+        )
+
+
+class DevelopmentInMemoryPEBackend(NativeExecutionBackend):
+    """
+    Development-only Windows execution backend.
+    
+    WARNING: NON-PRODUCTION DEVELOPMENT WORKAROUND.
+    Avoids kernel SEC_IMAGE mapping by reading the compiled shared library as bytes
+    and mapping it in user memory via VirtualAlloc to bypass local Windows 11 Smart
+    App Control (SAC) blocks (WinError 4551) during local development testing.
+    Does NOT provide a security sandbox or resource isolation.
+    """
+    requires_shared_library: bool = True
+
+    def execute(
+        self,
+        compiled: CompiledBinary,
+        timeout_sec: float = 12.0,
+        max_events: int = 50000,
+        event_prefix: str = "[ALGOLENS_EVENT] "
+    ) -> NativeExecutionResult:
+        backend_dir_repr = repr(BACKEND_DIR)
+        runner_code = (
+            "import sys, os\n"
+            "sys.stdout.reconfigure(line_buffering=True)\n"
+            "sys.stderr.reconfigure(line_buffering=True)\n"
+            f"if {backend_dir_repr} not in sys.path: sys.path.insert(0, {backend_dir_repr})\n"
+            "from pe_memory_loader import load_and_run_pe\n"
+            "p = os.path.abspath(sys.argv[1])\n"
+            "load_and_run_pe(p, 'algolens_entry')\n"
+            "sys.exit(0)\n"
+        )
+        cmd = [sys.executable, "-u", "-c", runner_code, compiled.exe_path]
+
+        t_exec_start = time.perf_counter()
+        run_res = None
+        for attempt in range(8):
+            try:
+                run_res = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_sec
+                )
+                break
+            except OSError as oe:
+                if attempt < 7 and (getattr(oe, "winerror", None) in (4551, 5, 32) or "4551" in str(oe)):
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Process invocation failed: {oe}",
+                    compile_time_ms=compiled.compile_time_ms,
+                    execution_time_ms=exec_ms,
+                    total_time_ms=compiled.compile_time_ms + exec_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+            except subprocess.TimeoutExpired:
+                exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+                return NativeExecutionResult(
+                    success=False,
+                    error_message=f"Execution timed out after {timeout_sec}s",
+                    compile_time_ms=compiled.compile_time_ms,
+                    execution_time_ms=exec_ms,
+                    total_time_ms=compiled.compile_time_ms + exec_ms,
+                    instrumented_code=compiled.instrumented_code
+                )
+
+        exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
+        events, user_stdout = _demultiplex_output(run_res.stdout if run_res else "", event_prefix, max_events)
+
+        return NativeExecutionResult(
+            success=(run_res is not None and run_res.returncode == 0),
+            events=events,
+            user_stdout=user_stdout,
+            compiler_diagnostics="",
+            runtime_stderr=run_res.stderr if run_res else "",
+            exit_code=run_res.returncode if run_res else -1,
+            compile_time_ms=compiled.compile_time_ms,
+            execution_time_ms=exec_ms,
+            total_time_ms=compiled.compile_time_ms + exec_ms,
+            instrumented_code=compiled.instrumented_code,
+            error_message=None if (run_res and run_res.returncode == 0) else f"Runtime process exited with code {run_res.returncode if run_res else -1}"
+        )
+
+
 class NativeCompilationPipeline:
     """
     Manages native C++ compilation, execution, and event capture.
+    Coordinates source-level AST instrumentation, native compilation via host compiler,
+    and dispatch to the configured NativeExecutionBackend.
     """
 
     EVENT_PREFIX = "[ALGOLENS_EVENT] "
 
-    def __init__(self, compiler_override: Optional[str] = None):
+    def __init__(
+        self,
+        compiler_override: Optional[str] = None,
+        backend: Optional[NativeExecutionBackend] = None
+    ):
         self.instrumentor = CPPInstrumentor()
         self.compiler_path, self.compiler_name, self.compiler_version = self._detect_compiler(compiler_override)
         self.runtime_header_dir = os.path.join(BACKEND_DIR, "native_runtime")
         self.build_cache_dir = os.path.join(BACKEND_DIR, ".tmp_builds")
         os.makedirs(self.build_cache_dir, exist_ok=True)
+        self.backend = backend or self._select_default_backend()
+
+    def _select_default_backend(self) -> NativeExecutionBackend:
+        """
+        Selects default native execution backend.
+        On Windows host development environments, defaults to DevelopmentInMemoryPEBackend
+        to prevent ephemeral test binaries from triggering Smart App Control (SAC) blocks.
+        In containerized or POSIX environments, uses standard SubprocessExecutionBackend.
+        """
+        if sys.platform == "win32":
+            return DevelopmentInMemoryPEBackend()
+        return SubprocessExecutionBackend()
 
     def _detect_compiler(self, override: Optional[str] = None) -> Tuple[str, str, str]:
         """Detects host C++ compiler (Clang++ preferred, falling back to g++)."""
@@ -126,7 +339,8 @@ class NativeCompilationPipeline:
         # Step 2: Isolated Compilation in Temporary Directory
         temp_dir = tempfile.mkdtemp(prefix="algolens_native_", dir=self.build_cache_dir)
         src_path = os.path.join(temp_dir, "app.cpp")
-        bin_ext = ".dll" if sys.platform == "win32" else ".so"
+        is_shared = getattr(self.backend, "requires_shared_library", False)
+        bin_ext = (".dll" if sys.platform == "win32" else ".so") if is_shared else (".exe" if sys.platform == "win32" else "")
         unique_id = f"{os.getpid()}_{int(time.perf_counter()*1000000 % 10000000)}"
         bin_path = os.path.join(temp_dir, f"algolens_runner_{unique_id}{bin_ext}")
 
@@ -139,13 +353,14 @@ class NativeCompilationPipeline:
                 "-std=c++17",
                 "-O0",
                 "-g",
-                "-shared",
                 "-static",
                 f"-I{self.runtime_header_dir}",
                 src_path,
                 "-o",
                 bin_path
             ]
+            if is_shared:
+                compile_cmd.insert(4, "-shared")
 
             compile_res = None
             compile_ms = 0.0
@@ -178,91 +393,17 @@ class NativeCompilationPipeline:
         max_events: int = 50000
     ) -> NativeExecutionResult:
         """
-        Executes an already compiled native binary/shared library via the trusted Python runner,
-        completely eliminating Windows Smart App Control / SmartScreen unknown publisher warnings.
+        Executes an already compiled native binary via the configured NativeExecutionBackend.
         """
-        backend_dir_repr = repr(BACKEND_DIR)
-        runner_code = (
-            "import sys, os\n"
-            "sys.stdout.reconfigure(line_buffering=True)\n"
-            "sys.stderr.reconfigure(line_buffering=True)\n"
-            f"if {backend_dir_repr} not in sys.path: sys.path.insert(0, {backend_dir_repr})\n"
-            "from pe_memory_loader import load_and_run_pe\n"
-            "p = os.path.abspath(sys.argv[1])\n"
-            "load_and_run_pe(p, 'algolens_entry')\n"
-            "sys.exit(0)\n"
+        res = self.backend.execute(
+            compiled,
+            timeout_sec=timeout_sec,
+            max_events=max_events,
+            event_prefix=self.EVENT_PREFIX
         )
-        cmd = [sys.executable, "-u", "-c", runner_code, compiled.exe_path]
-
-        t_exec_start = time.perf_counter()
-        run_res = None
-        for attempt in range(8):
-            try:
-                run_res = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout_sec
-                )
-                break
-            except OSError as oe:
-                if attempt < 7 and (getattr(oe, 'winerror', None) in (4551, 5, 32) or "4551" in str(oe)):
-                    time.sleep(0.3 * (attempt + 1))
-                    continue
-                return NativeExecutionResult(
-                    success=False,
-                    error_message=f"Process invocation failed: {oe}",
-                    compiler_name=self.compiler_name,
-                    compiler_version=self.compiler_version,
-                    compile_time_ms=compiled.compile_time_ms,
-                    instrumented_code=compiled.instrumented_code
-                )
-            except subprocess.TimeoutExpired:
-                return NativeExecutionResult(
-                    success=False,
-                    error_message=f"Execution timed out after {timeout_sec}s",
-                    compiler_name=self.compiler_name,
-                    compiler_version=self.compiler_version,
-                    compile_time_ms=compiled.compile_time_ms,
-                    instrumented_code=compiled.instrumented_code
-                )
-        exec_ms = (time.perf_counter() - t_exec_start) * 1000.0
-
-        # Demultiplex Event Stream and User Stdout
-        events: List[AlgoLensEvent] = []
-        user_lines: List[str] = []
-
-        if run_res and run_res.stdout:
-            for line in run_res.stdout.splitlines():
-                if line.startswith(self.EVENT_PREFIX):
-                    json_str = line[len(self.EVENT_PREFIX):].strip()
-                    try:
-                        import json
-                        raw_dict = json.loads(json_str)
-                        ev = AlgoLensEvent(**raw_dict)
-                        events.append(ev)
-                        if len(events) >= max_events:
-                            break
-                    except Exception:
-                        pass
-                else:
-                    user_lines.append(line)
-
-        return NativeExecutionResult(
-            success=(run_res is not None and run_res.returncode == 0),
-            events=events,
-            user_stdout="\n".join(user_lines),
-            compiler_diagnostics="",
-            runtime_stderr=run_res.stderr if run_res else "",
-            exit_code=run_res.returncode if run_res else -1,
-            compiler_name=self.compiler_name,
-            compiler_version=self.compiler_version,
-            compile_time_ms=compiled.compile_time_ms,
-            execution_time_ms=exec_ms,
-            total_time_ms=compiled.compile_time_ms + exec_ms,
-            instrumented_code=compiled.instrumented_code,
-            error_message=None if (run_res and run_res.returncode == 0) else f"Runtime process exited with code {run_res.returncode if run_res else -1}"
-        )
+        res.compiler_name = self.compiler_name
+        res.compiler_version = self.compiler_version
+        return res
 
     def compile_and_run(
         self,
@@ -318,7 +459,8 @@ class NativeCompilationPipeline:
         """
         temp_dir = tempfile.mkdtemp(prefix="algolens_uninst_", dir=self.build_cache_dir)
         src_path = os.path.join(temp_dir, "app_raw.cpp")
-        bin_ext = ".dll" if sys.platform == "win32" else ".so"
+        is_shared = getattr(self.backend, "requires_shared_library", False)
+        bin_ext = (".dll" if sys.platform == "win32" else ".so") if is_shared else (".exe" if sys.platform == "win32" else "")
         bin_path = os.path.join(temp_dir, f"algolens_runner_raw{bin_ext}")
 
         full_code = (
@@ -350,12 +492,14 @@ class NativeCompilationPipeline:
                 self.compiler_path,
                 "-std=c++17",
                 "-O0",
-                "-shared",
                 "-static",
                 src_path,
                 "-o",
                 bin_path
             ]
+            if is_shared:
+                compile_cmd.insert(3, "-shared")
+
             c_res = None
             compile_ms = 0.0
             for attempt in range(6):
@@ -387,37 +531,26 @@ class NativeCompilationPipeline:
         timeout_sec: float = 5.0
     ) -> Tuple[float, float, int]:
         """
-        Compiles and runs the pure, uninstrumented C++ code via trusted Python runner.
+        Compiles and runs the pure, uninstrumented C++ code via configured execution backend.
         Returns (compile_time_ms, execution_time_ms, exit_code).
         """
         compiled, diag, c_ms, err = self.compile_uninstrumented(source_code, entry_func)
         if err or not compiled:
             raise RuntimeError(err or "Uninstrumented compilation failed")
 
-        backend_dir_repr = repr(BACKEND_DIR)
-        runner_code = (
-            f"import sys, os; "
-            f"if {backend_dir_repr} not in sys.path: sys.path.insert(0, {backend_dir_repr}); "
-            f"from pe_memory_loader import load_and_run_pe; "
-            f"p = os.path.abspath(sys.argv[1]); "
-            f"load_and_run_pe(p, 'algolens_entry'); "
-            f"sys.exit(0)"
-        )
-        cmd = [sys.executable, "-u", "-c", runner_code, compiled.exe_path]
-
         try:
             # Warm up process cache once
-            subprocess.run(cmd, capture_output=True, timeout=timeout_sec)
+            self.backend.execute(compiled, timeout_sec=timeout_sec)
             
             # Measure warm execution
             times = []
             r_res = None
             for _ in range(5):
                 t1 = time.perf_counter()
-                r_res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
+                r_res = self.backend.execute(compiled, timeout_sec=timeout_sec)
                 times.append((time.perf_counter() - t1) * 1000.0)
             exec_ms = sum(times) / len(times)
 
-            return c_ms, exec_ms, r_res.returncode if r_res else 0
+            return c_ms, exec_ms, r_res.exit_code if r_res else 0
         finally:
             compiled.cleanup()
