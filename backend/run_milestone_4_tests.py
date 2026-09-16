@@ -21,6 +21,7 @@ Validates:
 
 import os
 import sys
+import time
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
@@ -107,6 +108,7 @@ def test_native_golden_corpus():
 
         print(f"  [PASS] {key}: Native Ret={native_ret} | Events={len(native_res.events)} | Steps={len(steps)} | Heap Objs={len(state.heap)}")
         passed_count += 1
+        time.sleep(0.1)
 
     print(f"  All {passed_count}/{len(M4_GOLDEN_CATEGORIES)} Golden Corpus tests passed with 100% semantic fidelity.")
 

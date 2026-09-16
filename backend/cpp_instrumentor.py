@@ -87,7 +87,7 @@ class CPPInstrumentor:
                 raise SyntaxError(f"C++ parsing errors:\n{diag_msgs}")
 
         edits: List[SourceEdit] = []
-        found_functions: Set[str] = set()
+        found_functions: Dict[str, bool] = {}
         ret_counter = 0
 
         # Scan for unsupported constructs and dynamic allocation
@@ -121,7 +121,7 @@ class CPPInstrumentor:
 
             if cursor.kind == CursorKind.FUNCTION_DECL:
                 fn_name = cursor.spelling
-                found_functions.add(fn_name)
+                found_functions[fn_name] = (cursor.result_type.kind == TypeKind.VOID)
                 fn_line = cursor.location.line - line_shift
 
                 # Find compound statement body
@@ -170,9 +170,34 @@ class CPPInstrumentor:
         transformed = header_inc + transformed
 
         # If entry_func is not main() and main() wasn't defined, synthesize main() driver
-        if "main" not in found_functions and entry_func in found_functions:
-            driver = f"\n\nint main() {{\n    AL_PROG_START(\"{entry_func}\", 1);\n    {entry_func}();\n    return 0;\n}}\n"
-            transformed += driver
+        export_decl = (
+            "\n\n#ifdef _WIN32\n"
+            "#define AL_EXPORT extern \"C\" __declspec(dllexport)\n"
+            "#else\n"
+            "#define AL_EXPORT extern \"C\" __attribute__((visibility(\"default\")))\n"
+            "#endif\n\n"
+        )
+        if "main" in found_functions:
+            driver = (
+                export_decl +
+                "AL_EXPORT int algolens_entry() {\n"
+                "    return main();\n"
+                "}\n"
+            )
+        elif entry_func in found_functions:
+            is_void = found_functions.get(entry_func, False)
+            call_code = f"    {entry_func}();\n    return 0;\n" if is_void else f"    return {entry_func}();\n"
+            driver = (
+                export_decl +
+                f"AL_EXPORT int algolens_entry() {{\n"
+                f"    AL_PROG_START(\"{entry_func}\", 1);\n"
+                f"{call_code}"
+                f"}}\n\n"
+                f"int main() {{\n    return algolens_entry();\n}}\n"
+            )
+        else:
+            driver = export_decl + "AL_EXPORT int algolens_entry() {\n    return 0;\n}\n"
+        transformed += driver
 
         return transformed
 
