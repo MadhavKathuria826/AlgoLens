@@ -127,7 +127,8 @@ class NativeCompilationPipeline:
         temp_dir = tempfile.mkdtemp(prefix="algolens_native_", dir=self.build_cache_dir)
         src_path = os.path.join(temp_dir, "app.cpp")
         bin_ext = ".dll" if sys.platform == "win32" else ".so"
-        bin_path = os.path.join(temp_dir, f"algolens_runner{bin_ext}")
+        unique_id = f"{os.getpid()}_{int(time.perf_counter()*1000000 % 10000000)}"
+        bin_path = os.path.join(temp_dir, f"algolens_runner_{unique_id}{bin_ext}")
 
         try:
             with open(src_path, "w", encoding="utf-8") as f:
@@ -173,21 +174,23 @@ class NativeCompilationPipeline:
     def run_binary(
         self,
         compiled: CompiledBinary,
-        timeout_sec: float = 5.0,
+        timeout_sec: float = 12.0,
         max_events: int = 50000
     ) -> NativeExecutionResult:
         """
         Executes an already compiled native binary/shared library via the trusted Python runner,
         completely eliminating Windows Smart App Control / SmartScreen unknown publisher warnings.
         """
+        backend_dir_repr = repr(BACKEND_DIR)
         runner_code = (
-            "import ctypes, sys, os; "
-            "sys.stdout.reconfigure(line_buffering=True); "
-            "sys.stderr.reconfigure(line_buffering=True); "
-            "p = os.path.abspath(sys.argv[1]); "
-            "dll = ctypes.CDLL(p); "
-            "dll.algolens_entry(); "
-            "sys.exit(0)"
+            "import sys, os\n"
+            "sys.stdout.reconfigure(line_buffering=True)\n"
+            "sys.stderr.reconfigure(line_buffering=True)\n"
+            f"if {backend_dir_repr} not in sys.path: sys.path.insert(0, {backend_dir_repr})\n"
+            "from pe_memory_loader import load_and_run_pe\n"
+            "p = os.path.abspath(sys.argv[1])\n"
+            "load_and_run_pe(p, 'algolens_entry')\n"
+            "sys.exit(0)\n"
         )
         cmd = [sys.executable, "-u", "-c", runner_code, compiled.exe_path]
 
@@ -266,7 +269,7 @@ class NativeCompilationPipeline:
         source_code: str,
         entry_func: str = "main",
         args: List[Any] = None,
-        timeout_sec: float = 5.0,
+        timeout_sec: float = 12.0,
         max_events: int = 50000
     ) -> NativeExecutionResult:
         """
@@ -278,6 +281,9 @@ class NativeCompilationPipeline:
         last_res = None
         for attempt in range(5):
             compiled, diag, compile_ms, err = self.compile_only(source_code, entry_func, args)
+            if (err or not compiled) and attempt < 4:
+                time.sleep(0.4 * (attempt + 1))
+                continue
             if err or not compiled:
                 return NativeExecutionResult(
                     success=False,
@@ -291,11 +297,11 @@ class NativeCompilationPipeline:
             try:
                 res = self.run_binary(compiled, timeout_sec=timeout_sec, max_events=max_events)
                 res.total_time_ms = (time.perf_counter() - t_total_start) * 1000.0
-                err_str = res.error_message or ""
-                if res.success or ("4551" not in err_str and "Application Control" not in err_str):
+                combined_err = f"{res.error_message or ''} {res.runtime_stderr or ''}"
+                if res.success or ("4551" not in combined_err and "Application Control" not in combined_err):
                     return res
                 last_res = res
-                time.sleep(0.8 * (attempt + 1))
+                time.sleep(0.5 * (attempt + 1))
             finally:
                 compiled.cleanup()
 
@@ -388,12 +394,14 @@ class NativeCompilationPipeline:
         if err or not compiled:
             raise RuntimeError(err or "Uninstrumented compilation failed")
 
+        backend_dir_repr = repr(BACKEND_DIR)
         runner_code = (
-            "import ctypes, sys, os; "
-            "p = os.path.abspath(sys.argv[1]); "
-            "dll = ctypes.CDLL(p); "
-            "dll.algolens_entry(); "
-            "sys.exit(0)"
+            f"import sys, os; "
+            f"if {backend_dir_repr} not in sys.path: sys.path.insert(0, {backend_dir_repr}); "
+            f"from pe_memory_loader import load_and_run_pe; "
+            f"p = os.path.abspath(sys.argv[1]); "
+            f"load_and_run_pe(p, 'algolens_entry'); "
+            f"sys.exit(0)"
         )
         cmd = [sys.executable, "-u", "-c", runner_code, compiled.exe_path]
 

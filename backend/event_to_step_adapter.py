@@ -7,7 +7,7 @@ import copy
 import json
 from typing import Dict, Any, List, Optional
 from models import Step, VisualizationData
-from event_models import AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized
+from event_models import AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized, ReferenceRef
 from state_reducer import UniversalRuntimeState, UniversalStateReducer
 
 
@@ -27,6 +27,14 @@ class EventToStepAdapter:
             return val.value
         elif isinstance(val, ObjectRef):
             return val.object_id
+        elif isinstance(val, ReferenceRef):
+            if val.target_name:
+                return f"&{val.target_name}"
+            elif val.target_binding_id:
+                return f"&{val.target_binding_id}"
+            elif val.target_object_id:
+                return f"&{val.target_object_id}.{val.target_field or 'val'}"
+            return "&ref"
         elif isinstance(val, NullRef):
             return "0x0000"
         elif isinstance(val, DanglingRef):

@@ -1,0 +1,122 @@
+[
+  {
+    "name": "G01_basic_scalars",
+    "uninst_exec_ms": 104.34,
+    "inst_exec_ms": 72.05,
+    "overhead_ratio": 0.69,
+    "event_count": 12,
+    "raw_trace_bytes": 781,
+    "reducer_throughput_eps": 43212.1,
+    "avg_seek_ms": 0.012
+  },
+  {
+    "name": "G03_arithmetic",
+    "uninst_exec_ms": 108.72,
+    "inst_exec_ms": 68.58,
+    "overhead_ratio": 0.63,
+    "event_count": 10,
+    "raw_trace_bytes": 614,
+    "reducer_throughput_eps": 49875.3,
+    "avg_seek_ms": 0.008
+  },
+  {
+    "name": "G14_linked_lists",
+    "uninst_exec_ms": 86.98,
+    "inst_exec_ms": 70.95,
+    "overhead_ratio": 0.82,
+    "event_count": 18,
+    "raw_trace_bytes": 1317,
+    "reducer_throughput_eps": 68728.5,
+    "avg_seek_ms": 0.009
+  },
+  {
+    "name": "G15_binary_trees",
+    "uninst_exec_ms": 111.33,
+    "inst_exec_ms": 75.0,
+    "overhead_ratio": 0.67,
+    "event_count": 18,
+    "raw_trace_bytes": 1330,
+    "reducer_throughput_eps": 90135.2,
+    "avg_seek_ms": 0.006
+  },
+  {
+    "name": "G16_pointer_allocation",
+    "uninst_exec_ms": 98.21,
+    "inst_exec_ms": 65.68,
+    "overhead_ratio": 0.67,
+    "event_count": 9,
+    "raw_trace_bytes": 615,
+    "reducer_throughput_eps": 51813.5,
+    "avg_seek_ms": 0.008
+  },
+  {
+    "name": "G17_pointer_aliasing",
+    "uninst_exec_ms": 103.56,
+    "inst_exec_ms": 74.12,
+    "overhead_ratio": 0.72,
+    "event_count": 13,
+    "raw_trace_bytes": 930,
+    "reducer_throughput_eps": 65856.1,
+    "avg_seek_ms": 0.006
+  },
+  {
+    "name": "G18_reference_behavior",
+    "uninst_exec_ms": 98.71,
+    "inst_exec_ms": 69.15,
+    "overhead_ratio": 0.7,
+    "event_count": 13,
+    "raw_trace_bytes": 1015,
+    "reducer_throughput_eps": 37681.2,
+    "avg_seek_ms": 0.007
+  },
+  {
+    "name": "M5_first_class_refs",
+    "uninst_exec_ms": 102.64,
+    "inst_exec_ms": 76.61,
+    "overhead_ratio": 0.75,
+    "event_count": 18,
+    "raw_trace_bytes": 1548,
+    "reducer_throughput_eps": 86413.8,
+    "avg_seek_ms": 0.007
+  },
+  {
+    "name": "M5_pointer_to_pointer",
+    "uninst_exec_ms": 105.75,
+    "inst_exec_ms": 77.48,
+    "overhead_ratio": 0.73,
+    "event_count": 18,
+    "raw_trace_bytes": 1383,
+    "reducer_throughput_eps": 86124.4,
+    "avg_seek_ms": 0.007
+  },
+  {
+    "name": "M5_nested_structs",
+    "uninst_exec_ms": 100.06,
+    "inst_exec_ms": 80.7,
+    "overhead_ratio": 0.81,
+    "event_count": 15,
+    "raw_trace_bytes": 1139,
+    "reducer_throughput_eps": 72709.6,
+    "avg_seek_ms": 0.008
+  },
+  {
+    "name": "M5_class_methods",
+    "uninst_exec_ms": 105.17,
+    "inst_exec_ms": 70.02,
+    "overhead_ratio": 0.67,
+    "event_count": 23,
+    "raw_trace_bytes": 1729,
+    "reducer_throughput_eps": 70530.5,
+    "avg_seek_ms": 0.019
+  },
+  {
+    "name": "M5_stl_expansions",
+    "uninst_exec_ms": 98.41,
+    "inst_exec_ms": 73.27,
+    "overhead_ratio": 0.74,
+    "event_count": 32,
+    "raw_trace_bytes": 2598,
+    "reducer_throughput_eps": 112954.5,
+    "avg_seek_ms": 0.007
+  }
+]

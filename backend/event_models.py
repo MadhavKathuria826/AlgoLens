@@ -43,7 +43,14 @@ class DanglingRef(BaseModel):
 class Uninitialized(BaseModel):
     kind: Literal["uninitialized"] = "uninitialized"
 
-UniversalValue = Union[PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized]
+class ReferenceRef(BaseModel):
+    kind: Literal["reference"] = "reference"
+    target_binding_id: Optional[str] = None
+    target_name: Optional[str] = None
+    target_object_id: Optional[str] = None
+    target_field: Optional[str] = None
+
+UniversalValue = Union[PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized, ReferenceRef]
 
 
 # --- Helper Value Factories ---
@@ -52,6 +59,20 @@ def value_from_python(val: Any, type_str: str = "") -> UniversalValue:
     """Converts a Python runtime value/pointer address into a UniversalValue."""
     if val is None:
         return NullRef()
+    if isinstance(val, dict):
+        k = val.get("kind")
+        if k == "reference":
+            return ReferenceRef(**val)
+        elif k == "object_ref":
+            return ObjectRef(**val)
+        elif k == "null_ref":
+            return NullRef()
+        elif k == "dangling_ref":
+            return DanglingRef(**val)
+        elif k == "primitive":
+            return PrimitiveValue(**val)
+        elif k == "uninitialized":
+            return Uninitialized()
     if isinstance(val, bool):
         return PrimitiveValue(type_name="bool", value=val)
     if isinstance(val, int):

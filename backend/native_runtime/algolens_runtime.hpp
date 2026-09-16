@@ -229,7 +229,12 @@ value_to_json(T ptr) {
 // Fallback for unspecialized types
 template <typename T>
 typename std::enable_if<!std::is_pointer<T>::value && !std::is_arithmetic<T>::value, std::string>::type
-value_to_json(const T&) {
+value_to_json(const T& obj) {
+    uintptr_t addr = reinterpret_cast<uintptr_t>(&obj);
+    auto it = ObjectRegistry::instance().active_addr_to_id.find(addr);
+    if (it != ObjectRegistry::instance().active_addr_to_id.end()) {
+        return "{\"kind\":\"object_ref\",\"object_id\":\"" + it->second + "\"}";
+    }
     return "{\"kind\":\"primitive\",\"type_name\":\"unknown\",\"value\":\"<object>\"}";
 }
 
@@ -253,6 +258,15 @@ public:
     std::vector<std::string> scope_stack;
     std::unordered_map<std::string, std::string> var_binding_ids;
     std::unordered_map<std::string, std::string> var_values;  // name -> serialized json
+
+    struct VarAddrInfo {
+        std::string name;
+        std::string binding_id;
+        std::string frame_id;
+    };
+
+    std::unordered_map<uintptr_t, VarAddrInfo> active_var_addrs;
+    std::unordered_map<std::string, std::string> ref_target_names; // ref_name -> target_var_name
     bool initialized = false;
 
     Runtime() {
@@ -335,15 +349,35 @@ public:
         std::string ret_json = value_to_json(ret_val);
         std::string payload = "{\"return_value\":" + ret_json + "}";
         emit_raw_event("FRAME_POP", line, payload);
+        std::string popped = current_frame_id();
         if (frame_stack.size() > 1) frame_stack.pop_back();
         if (scope_stack.size() > 1) scope_stack.pop_back();
+
+        for (auto it = active_var_addrs.begin(); it != active_var_addrs.end(); ) {
+            if (it->second.frame_id == popped) {
+                ref_target_names.erase(it->second.name);
+                it = active_var_addrs.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void on_frame_pop_void(int line) {
         std::string payload = "{\"return_value\":null}";
         emit_raw_event("FRAME_POP", line, payload);
+        std::string popped = current_frame_id();
         if (frame_stack.size() > 1) frame_stack.pop_back();
         if (scope_stack.size() > 1) scope_stack.pop_back();
+
+        for (auto it = active_var_addrs.begin(); it != active_var_addrs.end(); ) {
+            if (it->second.frame_id == popped) {
+                ref_target_names.erase(it->second.name);
+                it = active_var_addrs.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void on_scope_enter(const char* kind, int line) {
@@ -364,6 +398,28 @@ public:
     template <typename T>
     void on_var_declare(const char* name, const char* type_str, const T& val, int line) {
         std::string bid = get_or_create_binding_id(name);
+        uintptr_t addr = reinterpret_cast<uintptr_t>(&val);
+
+        // Check if this address already belongs to an active variable (C++ reference)
+        auto it_addr = active_var_addrs.find(addr);
+        if (it_addr != active_var_addrs.end() && it_addr->second.name != name) {
+            std::string target_name = it_addr->second.name;
+            std::string target_bid = it_addr->second.binding_id;
+            ref_target_names[name] = target_name;
+
+            std::string val_json = "{\"kind\":\"reference\",\"target_name\":\"" + escape_json(target_name) + "\",\"target_binding_id\":\"" + target_bid + "\"}";
+            var_values[name] = val_json;
+
+            std::string payload = "{\"binding_id\":\"" + bid + "\","
+                                + "\"name\":\"" + escape_json(name) + "\","
+                                + "\"type_decl\":\"" + escape_json(type_str) + "\","
+                                + "\"value\":" + val_json + "}";
+            emit_raw_event("VAR_DECLARE", line, payload);
+            return;
+        }
+
+        // Fresh variable
+        active_var_addrs[addr] = {name, bid, current_frame_id()};
         std::string val_json = value_to_json(val);
         var_values[name] = val_json;
 
@@ -376,9 +432,28 @@ public:
 
     template <typename T>
     void on_var_write(const char* name, const T& new_val, int line) {
-        std::string bid = get_or_create_binding_id(name);
+        std::string target_name = name;
+        auto it_ref = ref_target_names.find(name);
+        if (it_ref != ref_target_names.end()) {
+            target_name = it_ref->second;
+        }
+
         std::string new_val_json = value_to_json(new_val);
         
+        if (target_name != name) {
+            std::string target_bid = get_or_create_binding_id(target_name);
+            auto it_old = var_values.find(target_name);
+            std::string old_val_json = (it_old != var_values.end()) ? it_old->second : "{\"kind\":\"uninitialized\"}";
+            var_values[target_name] = new_val_json;
+
+            std::string payload = "{\"binding_id\":\"" + target_bid + "\","
+                                + "\"name\":\"" + escape_json(target_name) + "\","
+                                + "\"old_value\":" + old_val_json + ","
+                                + "\"new_value\":" + new_val_json + "}";
+            emit_raw_event("VAR_WRITE", line, payload);
+        }
+
+        std::string bid = get_or_create_binding_id(name);
         auto it = var_values.find(name);
         std::string old_val_json = (it != var_values.end()) ? it->second : "{\"kind\":\"uninitialized\"}";
         var_values[name] = new_val_json;
@@ -443,10 +518,35 @@ inline T* al_delete(T* ptr, int line) {
     return ptr;
 }
 
+template <typename T>
+inline void al_stack_alloc(T* ptr, const char* type_name, int line) {
+    if (ptr) {
+        uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+        if (ObjectRegistry::instance().active_addr_to_id.find(addr) == ObjectRegistry::instance().active_addr_to_id.end()) {
+            std::string obj_id = ObjectRegistry::instance().register_allocation(
+                addr,
+                type_name,
+                sizeof(T),
+                line
+            );
+            std::ostringstream ss;
+            ss << "0x" << std::hex << addr;
+            std::string payload = "{\"object_id\":\"" + obj_id + "\","
+                                + "\"type_name\":\"" + escape_json(type_name) + "\","
+                                + "\"fields\":{},"
+                                + "\"debug_meta\":{\"native_address\":\"" + ss.str() + "\",\"size\":" + std::to_string(sizeof(T)) + ",\"is_stack\":true}}";
+            Runtime::instance().emit_raw_event("OBJECT_ALLOCATE", line, payload);
+        }
+    }
+}
+
 template <typename ObjT, typename ValT>
 inline void al_field_write(ObjT* obj_ptr, const char* field_name, const ValT& new_val, int line) {
     if (!obj_ptr) return;
     uintptr_t addr = reinterpret_cast<uintptr_t>(obj_ptr);
+    if (ObjectRegistry::instance().active_addr_to_id.find(addr) == ObjectRegistry::instance().active_addr_to_id.end()) {
+        al_stack_alloc(obj_ptr, "Object", line);
+    }
     std::string obj_id = ObjectRegistry::instance().get_or_register_address(addr);
     
     auto& reg = ObjectRegistry::instance().registry[obj_id];
@@ -466,6 +566,9 @@ template <typename PtrT, typename ValT>
 inline void al_deref_write(PtrT* ptr, const ValT& new_val, int line) {
     if (!ptr) return;
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+    if (ObjectRegistry::instance().active_addr_to_id.find(addr) == ObjectRegistry::instance().active_addr_to_id.end()) {
+        al_stack_alloc(ptr, "Object", line);
+    }
     std::string obj_id = ObjectRegistry::instance().get_or_register_address(addr);
     
     auto& reg = ObjectRegistry::instance().registry[obj_id];
@@ -479,9 +582,14 @@ inline void al_deref_write(PtrT* ptr, const ValT& new_val, int line) {
                         + "\"old_value\":" + old_val_json + ","
                         + "\"new_value\":" + new_val_json + "}";
     Runtime::instance().emit_raw_event("OBJECT_MUTATE", line, payload);
+
+    auto it_var = Runtime::instance().active_var_addrs.find(addr);
+    if (it_var != Runtime::instance().active_var_addrs.end()) {
+        Runtime::instance().on_var_write(it_var->second.name.c_str(), new_val, line);
+    }
 }
 
-// --- Container Semantic Operation Wrappers ---
+// --- Container & String Semantic Operation Wrappers ---
 
 template <typename T>
 inline void al_container_push(const char* name, const char* kind, const T& val, int line) {
@@ -503,6 +611,24 @@ inline void al_container_pop(const char* name, const char* kind, const T& popped
     Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
 }
 
+template <typename ContT>
+inline void al_container_clear(const char* name, const char* kind, const ContT& cont, int line) {
+    std::ostringstream ss_vals;
+    ss_vals << "[";
+    bool first = true;
+    for (const auto& elem : cont) {
+        if (!first) ss_vals << ",";
+        ss_vals << value_to_json(elem);
+        first = false;
+    }
+    ss_vals << "]";
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"" + escape_json(kind) + "\","
+                        + "\"op\":\"CLEAR\","
+                        + "\"old_values\":" + ss_vals.str() + "}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
 template <typename K, typename V>
 inline void al_map_insert(const char* name, const K& key, const V& val, int line) {
     std::ostringstream ss_k;
@@ -513,6 +639,47 @@ inline void al_map_insert(const char* name, const K& key, const V& val, int line
                         + "\"op\":\"INSERT\","
                         + "\"meta\":{\"" + escape_json(ss_k.str()) + "\":" + val_json + "}}";
     Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
+template <typename K, typename MapT>
+inline void al_map_erase(const char* name, const K& key, const MapT& map, int line) {
+    std::ostringstream ss_k;
+    ss_k << key;
+    std::string old_val_json = "{\"kind\":\"uninitialized\"}";
+    auto it = map.find(key);
+    if (it != map.end()) {
+        old_val_json = value_to_json(it->second);
+    }
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"MAP\","
+                        + "\"op\":\"ERASE\","
+                        + "\"meta\":{\"" + escape_json(ss_k.str()) + "\":" + old_val_json + "},"
+                        + "\"old_meta\":{\"" + escape_json(ss_k.str()) + "\":" + old_val_json + "}}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
+template <typename MapT>
+inline void al_map_clear(const char* name, const MapT& map, int line) {
+    std::ostringstream ss_meta;
+    ss_meta << "{";
+    bool first = true;
+    for (const auto& pair : map) {
+        if (!first) ss_meta << ",";
+        std::ostringstream ss_k;
+        ss_k << pair.first;
+        ss_meta << "\"" << escape_json(ss_k.str()) << "\":" << value_to_json(pair.second);
+        first = false;
+    }
+    ss_meta << "}";
+    std::string payload = "{\"container_id\":\"" + escape_json(name) + "\","
+                        + "\"kind\":\"MAP\","
+                        + "\"op\":\"CLEAR\","
+                        + "\"old_meta\":" + ss_meta.str() + "}";
+    Runtime::instance().emit_raw_event("CONTAINER_OP", line, payload);
+}
+
+inline void al_string_write(const char* name, const std::string& s, int line) {
+    Runtime::instance().on_var_write(name, s, line);
 }
 
 } // namespace algolens
@@ -530,6 +697,11 @@ inline void al_map_insert(const char* name, const K& key, const V& val, int line
 #define AL_ARRAY_WRITE(name, index, val, line) ::algolens::Runtime::instance().on_array_write(name, index, val, line)
 #define AL_FIELD_WRITE(obj_ptr, field_name, val, line) ::algolens::al_field_write(obj_ptr, field_name, val, line)
 #define AL_DEREF_WRITE(ptr, val, line) ::algolens::al_deref_write(ptr, val, line)
+#define AL_STACK_ALLOC(ptr, type_name, line) ::algolens::al_stack_alloc(ptr, type_name, line)
 #define AL_CONTAINER_PUSH(name, kind, val, line) ::algolens::al_container_push(name, kind, val, line)
 #define AL_CONTAINER_POP(name, kind, val, line) ::algolens::al_container_pop(name, kind, val, line)
+#define AL_CONTAINER_CLEAR(name, kind, cont, line) ::algolens::al_container_clear(name, kind, cont, line)
 #define AL_MAP_INSERT(name, key, val, line) ::algolens::al_map_insert(name, key, val, line)
+#define AL_MAP_ERASE(name, key, map, line) ::algolens::al_map_erase(name, key, map, line)
+#define AL_MAP_CLEAR(name, map, line) ::algolens::al_map_clear(name, map, line)
+#define AL_STRING_WRITE(name, s, line) ::algolens::al_string_write(name, s, line)

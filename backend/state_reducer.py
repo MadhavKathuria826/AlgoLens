@@ -8,8 +8,40 @@ import copy
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from event_models import (
-    AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized
+    AlgoLensEvent, UniversalValue, PrimitiveValue, ObjectRef, NullRef, DanglingRef, Uninitialized, ReferenceRef
 )
+
+
+def _parse_uval(raw_val: Any, fallback_type: str = "unknown") -> UniversalValue:
+    """Helper to deterministically convert raw payload values into UniversalValue."""
+    if isinstance(raw_val, dict):
+        k = raw_val.get("kind")
+        if k == "primitive":
+            return PrimitiveValue(**raw_val)
+        elif k == "object_ref":
+            return ObjectRef(**raw_val)
+        elif k == "null_ref":
+            return NullRef()
+        elif k == "dangling_ref":
+            return DanglingRef(**raw_val)
+        elif k == "reference":
+            return ReferenceRef(**raw_val)
+        elif k == "uninitialized":
+            return Uninitialized()
+        else:
+            return PrimitiveValue(type_name=fallback_type, value=raw_val.get("value", str(raw_val)))
+    elif isinstance(raw_val, UniversalValue):
+        return raw_val
+    elif isinstance(raw_val, str):
+        if raw_val in ("0x0000", "nullptr", "NULL"):
+            return NullRef()
+        elif raw_val.startswith("obj_"):
+            return ObjectRef(object_id=raw_val)
+        else:
+            return PrimitiveValue(type_name=fallback_type, value=raw_val)
+    elif raw_val is None:
+        return NullRef()
+    return PrimitiveValue(type_name=fallback_type, value=raw_val)
 
 
 class UniversalBinding(BaseModel):
@@ -193,22 +225,7 @@ class UniversalStateReducer:
             name = payload["name"]
             type_decl = payload.get("type_decl", "")
             raw_val = payload.get("value")
-            
-            # Parse value
-            if isinstance(raw_val, dict):
-                k = raw_val.get("kind")
-                if k == "primitive":
-                    u_val = PrimitiveValue(**raw_val)
-                elif k == "object_ref":
-                    u_val = ObjectRef(**raw_val)
-                elif k == "null_ref":
-                    u_val = NullRef()
-                else:
-                    u_val = Uninitialized()
-            elif isinstance(raw_val, UniversalValue):
-                u_val = raw_val
-            else:
-                u_val = PrimitiveValue(type_name=type_decl or "unknown", value=raw_val)
+            u_val = _parse_uval(raw_val, type_decl or "unknown")
 
             binding = UniversalBinding(
                 binding_id=b_id,
@@ -227,29 +244,31 @@ class UniversalStateReducer:
             b_id = payload.get("binding_id")
             name = payload.get("name")
             raw_val = payload.get("new_value")
+            u_val = _parse_uval(raw_val)
 
-            if isinstance(raw_val, dict):
-                k = raw_val.get("kind")
-                if k == "primitive":
-                    u_val = PrimitiveValue(**raw_val)
-                elif k == "object_ref":
-                    u_val = ObjectRef(**raw_val)
-                elif k == "null_ref":
-                    u_val = NullRef()
-                else:
-                    u_val = Uninitialized()
-            elif isinstance(raw_val, UniversalValue):
-                u_val = raw_val
-            else:
-                u_val = PrimitiveValue(type_name="unknown", value=raw_val)
-
+            target_binding = None
             if b_id and b_id in state.bindings:
-                state.bindings[b_id].value = u_val
+                target_binding = state.bindings[b_id]
             elif name:
-                # Find binding in visible scope
                 visible = state.get_visible_bindings()
                 if name in visible:
-                    visible[name].value = u_val
+                    target_binding = visible[name]
+
+            if target_binding:
+                if isinstance(target_binding.value, ReferenceRef):
+                    # Write through reference to referent
+                    ref = target_binding.value
+                    if ref.target_binding_id and ref.target_binding_id in state.bindings:
+                        state.bindings[ref.target_binding_id].value = u_val
+                    elif ref.target_name:
+                        vis = state.get_visible_bindings()
+                        if ref.target_name in vis:
+                            vis[ref.target_name].value = u_val
+                    elif ref.target_object_id and ref.target_object_id in state.heap:
+                        f_name = ref.target_field or "value"
+                        state.heap[ref.target_object_id].fields[f_name] = u_val
+                else:
+                    target_binding.value = u_val
 
         # 3. Heap Objects
         elif ev_type == "OBJECT_ALLOCATE":
@@ -259,17 +278,7 @@ class UniversalStateReducer:
             parsed_fields: Dict[str, UniversalValue] = {}
 
             for f_name, f_val in raw_fields.items():
-                if isinstance(f_val, dict) and "kind" in f_val:
-                    parsed_fields[f_name] = ObjectRef(**f_val) if f_val["kind"] == "object_ref" else (NullRef() if f_val["kind"] == "null_ref" else PrimitiveValue(**f_val))
-                elif isinstance(f_val, str):
-                    if f_val in ("0x0000", "nullptr", "NULL"):
-                        parsed_fields[f_name] = NullRef()
-                    elif f_val.startswith("obj_"):
-                        parsed_fields[f_name] = ObjectRef(object_id=f_val)
-                    else:
-                        parsed_fields[f_name] = PrimitiveValue(type_name="unknown", value=f_val)
-                else:
-                    parsed_fields[f_name] = PrimitiveValue(type_name="unknown", value=f_val)
+                parsed_fields[f_name] = _parse_uval(f_val)
 
             heap_obj = UniversalHeapObject(
                 object_id=obj_id,
@@ -283,29 +292,26 @@ class UniversalStateReducer:
             obj_id = payload["object_id"]
             field = payload["field"]
             raw_val = payload.get("new_value")
+            u_val = _parse_uval(raw_val)
 
-            if isinstance(raw_val, dict) and "kind" in raw_val:
-                k = raw_val["kind"]
-                if k == "object_ref":
-                    u_val = ObjectRef(**raw_val)
-                elif k == "null_ref":
-                    u_val = NullRef()
-                elif k == "dangling_ref":
-                    u_val = DanglingRef(**raw_val)
-                else:
-                    u_val = PrimitiveValue(**raw_val)
-            elif isinstance(raw_val, str):
-                if raw_val in ("0x0000", "nullptr", "NULL"):
-                    u_val = NullRef()
-                elif raw_val.startswith("obj_"):
-                    u_val = ObjectRef(object_id=raw_val)
-                else:
-                    u_val = PrimitiveValue(type_name="unknown", value=raw_val)
-            else:
-                u_val = PrimitiveValue(type_name="unknown", value=raw_val)
+            if obj_id not in state.heap:
+                state.heap[obj_id] = UniversalHeapObject(
+                    object_id=obj_id,
+                    type_name=payload.get("type_name", "Object"),
+                    fields={},
+                    meta=payload.get("debug_meta", {})
+                )
 
-            if obj_id in state.heap:
+            parts = field.split(".")
+            if len(parts) == 1:
                 state.heap[obj_id].fields[field] = u_val
+            else:
+                curr = state.heap[obj_id].fields
+                for p in parts[:-1]:
+                    if p not in curr or not isinstance(curr[p], dict):
+                        curr[p] = {}
+                    curr = curr[p]
+                curr[parts[-1]] = u_val
 
         elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
             obj_id = payload["object_id"]
@@ -329,8 +335,18 @@ class UniversalStateReducer:
                 if c_state["elements"]:
                     c_state["elements"].pop()
             elif op == "SET_INDEX":
+                indices = payload.get("indices")
                 vals = payload.get("values")
-                if vals is not None:
+                if indices and vals and len(indices) == len(vals):
+                    for idx, v in zip(indices, vals):
+                        val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
+                        if isinstance(c_state["elements"], list):
+                            while len(c_state["elements"]) <= idx:
+                                c_state["elements"].append(None)
+                            c_state["elements"][idx] = val_repr
+                        elif isinstance(c_state["elements"], dict):
+                            c_state["elements"][str(idx)] = val_repr
+                elif vals is not None:
                     c_state["elements"] = []
                     for v in vals:
                         val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
@@ -343,6 +359,20 @@ class UniversalStateReducer:
                     for mk, mv in meta.items():
                         mval = mv.get("value") if isinstance(mv, dict) and "value" in mv else mv
                         c_state["elements"][mk] = mval
+            elif op == "ERASE":
+                meta = payload.get("meta")
+                indices = payload.get("indices")
+                if meta and isinstance(meta, dict) and isinstance(c_state["elements"], dict):
+                    for mk in meta:
+                        c_state["elements"].pop(mk, None)
+                if indices and isinstance(c_state["elements"], dict):
+                    for idx in indices:
+                        c_state["elements"].pop(str(idx), None)
+            elif op == "CLEAR":
+                if isinstance(c_state["elements"], list):
+                    c_state["elements"] = []
+                else:
+                    c_state["elements"] = {}
 
         return state
 
@@ -359,27 +389,30 @@ class UniversalStateReducer:
             b_id = payload.get("binding_id")
             name = payload.get("name")
             old_raw = payload.get("old_value")
-            if isinstance(old_raw, dict):
-                k = old_raw.get("kind")
-                if k == "primitive":
-                    old_u = PrimitiveValue(**old_raw)
-                elif k == "object_ref":
-                    old_u = ObjectRef(**old_raw)
-                elif k == "null_ref":
-                    old_u = NullRef()
-                else:
-                    old_u = Uninitialized()
-            elif isinstance(old_raw, UniversalValue):
-                old_u = old_raw
-            else:
-                old_u = Uninitialized()
+            old_u = _parse_uval(old_raw)
 
+            target_binding = None
             if b_id and b_id in state.bindings:
-                state.bindings[b_id].value = old_u
+                target_binding = state.bindings[b_id]
             elif name:
                 vis = state.get_visible_bindings()
                 if name in vis:
-                    vis[name].value = old_u
+                    target_binding = vis[name]
+
+            if target_binding:
+                if isinstance(target_binding.value, ReferenceRef):
+                    ref = target_binding.value
+                    if ref.target_binding_id and ref.target_binding_id in state.bindings:
+                        state.bindings[ref.target_binding_id].value = old_u
+                    elif ref.target_name:
+                        vis = state.get_visible_bindings()
+                        if ref.target_name in vis:
+                            vis[ref.target_name].value = old_u
+                    elif ref.target_object_id and ref.target_object_id in state.heap:
+                        f_name = ref.target_field or "value"
+                        state.heap[ref.target_object_id].fields[f_name] = old_u
+                else:
+                    target_binding.value = old_u
 
         elif ev_type == "VAR_DECLARE":
             b_id = payload.get("binding_id")
@@ -395,42 +428,33 @@ class UniversalStateReducer:
                     b_id = scope.binding_map.pop(name)
                     state.bindings.pop(b_id, None)
 
+            if name and name in state.containers:
+                state.containers.pop(name, None)
+
         # 2. Object Mutation Inversion
         elif ev_type == "OBJECT_MUTATE":
             obj_id = payload["object_id"]
             field = payload["field"]
             old_raw = payload.get("old_value")
-            if isinstance(old_raw, dict) and "kind" in old_raw:
-                k = old_raw["kind"]
-                if k == "object_ref":
-                    old_u = ObjectRef(**old_raw)
-                elif k == "null_ref":
-                    old_u = NullRef()
-                elif k == "dangling_ref":
-                    old_u = DanglingRef(**old_raw)
-                elif k == "uninitialized":
-                    old_u = Uninitialized()
-                elif k == "primitive":
-                    old_u = PrimitiveValue(**old_raw)
-                else:
-                    old_u = Uninitialized()
-            elif isinstance(old_raw, UniversalValue):
-                old_u = old_raw
-            elif isinstance(old_raw, str):
-                if old_raw in ("0x0000", "nullptr", "NULL"):
-                    old_u = NullRef()
-                elif old_raw.startswith("obj_"):
-                    old_u = ObjectRef(object_id=old_raw)
-                else:
-                    old_u = PrimitiveValue(type_name="unknown", value=old_raw)
-            else:
-                old_u = PrimitiveValue(type_name="unknown", value=old_raw)
+            old_u = _parse_uval(old_raw)
 
             if obj_id in state.heap:
-                if isinstance(old_u, Uninitialized):
-                    state.heap[obj_id].fields.pop(field, None)
+                parts = field.split(".")
+                if len(parts) == 1:
+                    if isinstance(old_u, Uninitialized):
+                        state.heap[obj_id].fields.pop(field, None)
+                    else:
+                        state.heap[obj_id].fields[field] = old_u
                 else:
-                    state.heap[obj_id].fields[field] = old_u
+                    curr = state.heap[obj_id].fields
+                    for p in parts[:-1]:
+                        if p not in curr or not isinstance(curr[p], dict):
+                            curr[p] = {}
+                        curr = curr[p]
+                    if isinstance(old_u, Uninitialized):
+                        curr.pop(parts[-1], None)
+                    else:
+                        curr[parts[-1]] = old_u
 
         elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
             obj_id = payload["object_id"]
@@ -439,26 +463,12 @@ class UniversalStateReducer:
                 if "old_fields" in payload and payload["old_fields"]:
                     old_f = {}
                     for fk, fv in (payload.get("old_fields") or {}).items():
-                        if isinstance(fv, dict) and "kind" in fv:
-                            old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else (DanglingRef(**fv) if fv["kind"] == "dangling_ref" else PrimitiveValue(**fv)))
-                        elif isinstance(fv, str) and fv.startswith("obj_"):
-                            old_f[fk] = ObjectRef(object_id=fv)
-                        elif isinstance(fv, str) and fv in ("0x0000", "nullptr", "NULL"):
-                            old_f[fk] = NullRef()
-                        else:
-                            old_f[fk] = PrimitiveValue(type_name="unknown", value=fv)
+                        old_f[fk] = _parse_uval(fv)
                     state.heap[obj_id].fields = old_f
             elif "old_fields" in payload:
                 old_f = {}
                 for fk, fv in (payload.get("old_fields") or {}).items():
-                    if isinstance(fv, dict) and "kind" in fv:
-                        old_f[fk] = ObjectRef(**fv) if fv["kind"] == "object_ref" else (NullRef() if fv["kind"] == "null_ref" else (DanglingRef(**fv) if fv["kind"] == "dangling_ref" else PrimitiveValue(**fv)))
-                    elif isinstance(fv, str) and fv.startswith("obj_"):
-                        old_f[fk] = ObjectRef(object_id=fv)
-                    elif isinstance(fv, str) and fv in ("0x0000", "nullptr", "NULL"):
-                        old_f[fk] = NullRef()
-                    else:
-                        old_f[fk] = PrimitiveValue(type_name="unknown", value=fv)
+                    old_f[fk] = _parse_uval(fv)
                 state.heap[obj_id] = UniversalHeapObject(
                     object_id=obj_id,
                     type_name=payload.get("type_name", "Object"),
@@ -479,7 +489,6 @@ class UniversalStateReducer:
                 old_vals = payload.get("old_values")
                 old_meta = payload.get("old_meta")
                 if op == "POP":
-                    # Inverse of POP is pushing the popped elements back
                     if old_vals is not None:
                         for v in old_vals:
                             val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
@@ -497,6 +506,21 @@ class UniversalStateReducer:
                         if meta and isinstance(meta, dict) and isinstance(c_state["elements"], dict):
                             for k in meta:
                                 c_state["elements"].pop(k, None)
+                elif op == "ERASE":
+                    if old_meta is not None and isinstance(old_meta, dict):
+                        c_state["elements"].update(old_meta)
+                    elif old_vals is not None:
+                        for v in old_vals:
+                            val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
+                            c_state["elements"].append(val_repr)
+                elif op == "CLEAR":
+                    if old_meta is not None and isinstance(old_meta, dict):
+                        c_state["elements"] = copy.deepcopy(old_meta)
+                    elif old_vals is not None:
+                        c_state["elements"] = []
+                        for v in old_vals:
+                            val_repr = v.get("value") if isinstance(v, dict) and "value" in v else v
+                            c_state["elements"].append(val_repr)
                 elif old_vals is not None:
                     c_state["elements"] = []
                     for v in old_vals:
