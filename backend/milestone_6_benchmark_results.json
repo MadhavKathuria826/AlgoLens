@@ -1,0 +1,416 @@
+{
+  "G01_basic_scalars": {
+    "workload": "G01_basic_scalars",
+    "event_count": 0,
+    "uninstrumented_baseline": {
+      "compilation_ms": 614.376,
+      "execution_ms": 32.536
+    },
+    "cold_execution": {
+      "instrumentation_ms": 12.314,
+      "compilation_ms": 913.192,
+      "cache_lookup_ms": 0.5,
+      "backend_execution_ms": 41.585,
+      "reduction_ms": 0.009,
+      "total_e2e_ms": 1287.301,
+      "event_count": 0
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 8.494,
+        "min": 8.209,
+        "max": 10.72,
+        "stdev": 0.773,
+        "mean": 8.833
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 1.907,
+        "min": 1.874,
+        "max": 2.276,
+        "stdev": 0.142,
+        "mean": 1.979
+      },
+      "backend_execution_ms": {
+        "median": 35.074,
+        "min": 33.038,
+        "max": 37.808,
+        "stdev": 1.401,
+        "mean": 35.037
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.009,
+        "min": 0.007,
+        "max": 0.01,
+        "stdev": 0.001,
+        "mean": 0.009
+      },
+      "total_e2e_ms": {
+        "median": 45.716,
+        "min": 43.426,
+        "max": 48.471,
+        "stdev": 1.833,
+        "mean": 45.916
+      }
+    },
+    "cache_speedup_factor": 28.16
+  },
+  "G14_linked_lists": {
+    "workload": "G14_linked_lists",
+    "event_count": 0,
+    "uninstrumented_baseline": {
+      "compilation_ms": 615.085,
+      "execution_ms": 32.331
+    },
+    "cold_execution": {
+      "instrumentation_ms": 12.749,
+      "compilation_ms": 992.608,
+      "cache_lookup_ms": 0.433,
+      "backend_execution_ms": 39.566,
+      "reduction_ms": 0.01,
+      "total_e2e_ms": 1358.929,
+      "event_count": 0
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 9.662,
+        "min": 8.974,
+        "max": 14.444,
+        "stdev": 1.603,
+        "mean": 10.045
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 2.29,
+        "min": 2.193,
+        "max": 2.803,
+        "stdev": 0.198,
+        "mean": 2.356
+      },
+      "backend_execution_ms": {
+        "median": 35.665,
+        "min": 33.408,
+        "max": 39.596,
+        "stdev": 1.617,
+        "mean": 35.953
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.009,
+        "min": 0.008,
+        "max": 0.016,
+        "stdev": 0.003,
+        "mean": 0.01
+      },
+      "total_e2e_ms": {
+        "median": 47.832,
+        "min": 45.799,
+        "max": 52.506,
+        "stdev": 2.214,
+        "mean": 48.433
+      }
+    },
+    "cache_speedup_factor": 28.41
+  },
+  "G15_binary_trees": {
+    "workload": "G15_binary_trees",
+    "event_count": 0,
+    "uninstrumented_baseline": {
+      "compilation_ms": 624.468,
+      "execution_ms": 32.879
+    },
+    "cold_execution": {
+      "instrumentation_ms": 9.621,
+      "compilation_ms": 972.069,
+      "cache_lookup_ms": 0.667,
+      "backend_execution_ms": 41.744,
+      "reduction_ms": 0.009,
+      "total_e2e_ms": 1342.23,
+      "event_count": 0
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 9.4,
+        "min": 8.919,
+        "max": 11.921,
+        "stdev": 0.896,
+        "mean": 9.681
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 2.441,
+        "min": 2.184,
+        "max": 2.815,
+        "stdev": 0.222,
+        "mean": 2.45
+      },
+      "backend_execution_ms": {
+        "median": 35.874,
+        "min": 33.675,
+        "max": 40.764,
+        "stdev": 2.217,
+        "mean": 36.299
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.008,
+        "min": 0.007,
+        "max": 0.014,
+        "stdev": 0.002,
+        "mean": 0.009
+      },
+      "total_e2e_ms": {
+        "median": 48.127,
+        "min": 46.824,
+        "max": 52.419,
+        "stdev": 1.846,
+        "mean": 48.5
+      }
+    },
+    "cache_speedup_factor": 27.89
+  },
+  "G17_pointer_aliasing": {
+    "workload": "G17_pointer_aliasing",
+    "event_count": 0,
+    "uninstrumented_baseline": {
+      "compilation_ms": 600.471,
+      "execution_ms": 37.986
+    },
+    "cold_execution": {
+      "instrumentation_ms": 8.817,
+      "compilation_ms": 1120.505,
+      "cache_lookup_ms": 0.606,
+      "backend_execution_ms": 46.193,
+      "reduction_ms": 0.009,
+      "total_e2e_ms": 1535.25,
+      "event_count": 0
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 10.887,
+        "min": 9.665,
+        "max": 13.18,
+        "stdev": 1.179,
+        "mean": 10.957
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 2.761,
+        "min": 2.221,
+        "max": 3.605,
+        "stdev": 0.42,
+        "mean": 2.803
+      },
+      "backend_execution_ms": {
+        "median": 41.791,
+        "min": 39.447,
+        "max": 46.167,
+        "stdev": 2.086,
+        "mean": 42.154
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.009,
+        "min": 0.008,
+        "max": 0.045,
+        "stdev": 0.011,
+        "mean": 0.013
+      },
+      "total_e2e_ms": {
+        "median": 55.593,
+        "min": 52.896,
+        "max": 60.512,
+        "stdev": 2.447,
+        "mean": 56.006
+      }
+    },
+    "cache_speedup_factor": 27.62
+  },
+  "M5_nested_structs": {
+    "workload": "M5_nested_structs",
+    "event_count": 15,
+    "uninstrumented_baseline": {
+      "compilation_ms": 728.905,
+      "execution_ms": 34.482
+    },
+    "cold_execution": {
+      "instrumentation_ms": 12.032,
+      "compilation_ms": 1073.715,
+      "cache_lookup_ms": 0.583,
+      "backend_execution_ms": 45.202,
+      "reduction_ms": 0.193,
+      "total_e2e_ms": 1495.923,
+      "event_count": 15
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 11.247,
+        "min": 9.406,
+        "max": 13.365,
+        "stdev": 1.331,
+        "mean": 11.165
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 2.54,
+        "min": 2.251,
+        "max": 3.502,
+        "stdev": 0.35,
+        "mean": 2.616
+      },
+      "backend_execution_ms": {
+        "median": 42.649,
+        "min": 38.363,
+        "max": 46.163,
+        "stdev": 2.922,
+        "mean": 42.197
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.098,
+        "min": 0.086,
+        "max": 0.138,
+        "stdev": 0.017,
+        "mean": 0.103
+      },
+      "total_e2e_ms": {
+        "median": 56.807,
+        "min": 50.998,
+        "max": 60.215,
+        "stdev": 3.338,
+        "mean": 56.202
+      }
+    },
+    "cache_speedup_factor": 26.33
+  },
+  "M5_stl_containers": {
+    "workload": "M5_stl_containers",
+    "event_count": 161,
+    "uninstrumented_baseline": {
+      "compilation_ms": 719.019,
+      "execution_ms": 38.847
+    },
+    "cold_execution": {
+      "instrumentation_ms": 12.961,
+      "compilation_ms": 1089.735,
+      "cache_lookup_ms": 0.786,
+      "backend_execution_ms": 46.864,
+      "reduction_ms": 0.412,
+      "total_e2e_ms": 1516.009,
+      "event_count": 161
+    },
+    "warm_execution": {
+      "instrumentation_ms": {
+        "median": 10.733,
+        "min": 9.952,
+        "max": 14.889,
+        "stdev": 1.712,
+        "mean": 11.53
+      },
+      "compilation_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "cache_lookup_ms": {
+        "median": 2.743,
+        "min": 2.12,
+        "max": 3.112,
+        "stdev": 0.269,
+        "mean": 2.737
+      },
+      "backend_execution_ms": {
+        "median": 50.178,
+        "min": 42.523,
+        "max": 58.808,
+        "stdev": 5.203,
+        "mean": 50.068
+      },
+      "deserialization_ms": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "stdev": 0.0,
+        "mean": 0.0
+      },
+      "reduction_ms": {
+        "median": 0.204,
+        "min": 0.19,
+        "max": 0.413,
+        "stdev": 0.071,
+        "mean": 0.23
+      },
+      "total_e2e_ms": {
+        "median": 65.518,
+        "min": 60.362,
+        "max": 73.057,
+        "stdev": 3.997,
+        "mean": 65.371
+      }
+    },
+    "cache_speedup_factor": 23.14
+  }
+}
