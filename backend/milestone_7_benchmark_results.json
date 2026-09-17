@@ -1,0 +1,40 @@
+{
+  "workload_1_loop": {
+    "python": {
+      "pure_execution_ms": 0.0032800016924738884,
+      "traced_execution_ms": 3.379959985613823,
+      "tracing_overhead_ms": 3.376679983921349,
+      "reduction_ms": 0.6385800079442561,
+      "total_pipeline_ms": 4.018539993558079,
+      "event_count": 411
+    },
+    "cpp": {
+      "cold_compile_ms": 795.8521000109613,
+      "cold_total_ms": 1146.1902000010014,
+      "warm_lookup_ms": 11.058820015750825,
+      "warm_execution_ms": 35.785780008882284,
+      "warm_total_ms": 46.84460002463311,
+      "reduction_ms": 0.085279974155128,
+      "event_count": 107
+    }
+  },
+  "workload_2_container": {
+    "python": {
+      "pure_execution_ms": 0.0032800016924738884,
+      "traced_execution_ms": 4.662269994150847,
+      "tracing_overhead_ms": 4.658989992458373,
+      "reduction_ms": 0.6990300142206252,
+      "total_pipeline_ms": 5.361300008371472,
+      "event_count": 465
+    },
+    "cpp": {
+      "cold_compile_ms": 818.5093000065535,
+      "cold_total_ms": 1157.0675000548363,
+      "warm_lookup_ms": 16.30845998879522,
+      "warm_execution_ms": 44.25760000012815,
+      "warm_total_ms": 60.56605998892337,
+      "reduction_ms": 0.4322400549426675,
+      "event_count": 308
+    }
+  }
+}
