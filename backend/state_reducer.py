@@ -304,14 +304,20 @@ class UniversalStateReducer:
 
             parts = field.split(".")
             if len(parts) == 1:
-                state.heap[obj_id].fields[field] = u_val
+                if isinstance(u_val, Uninitialized):
+                    state.heap[obj_id].fields.pop(field, None)
+                else:
+                    state.heap[obj_id].fields[field] = u_val
             else:
                 curr = state.heap[obj_id].fields
                 for p in parts[:-1]:
                     if p not in curr or not isinstance(curr[p], dict):
                         curr[p] = {}
                     curr = curr[p]
-                curr[parts[-1]] = u_val
+                if isinstance(u_val, Uninitialized):
+                    curr.pop(parts[-1], None)
+                else:
+                    curr[parts[-1]] = u_val
 
         elif ev_type in ("OBJECT_DEALLOCATE", "OBJECT_FREE"):
             obj_id = payload["object_id"]

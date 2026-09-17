@@ -25,22 +25,15 @@ if BACKEND_DIR not in sys.path:
 from event_models import AlgoLensEvent
 from cpp_instrumentor import CPPInstrumentor, UnsupportedConstructError
 from compilation_cache import CompilationCache, CacheStatus, CacheKeySpec
+from runtime_contract import ExecutionResult, LanguageRuntimeProducer
 
 
-class NativeExecutionResult(BaseModel):
-    success: bool
-    events: List[AlgoLensEvent] = Field(default_factory=list)
-    user_stdout: str = ""
+class NativeExecutionResult(ExecutionResult):
     compiler_diagnostics: str = ""
-    runtime_stderr: str = ""
-    exit_code: int = 0
     compiler_name: str = ""
     compiler_version: str = ""
     compile_time_ms: float = 0.0
-    execution_time_ms: float = 0.0
-    total_time_ms: float = 0.0
     instrumented_code: Optional[str] = None
-    error_message: Optional[str] = None
     cache_status: Optional[str] = None
     cache_key: Optional[str] = None
     cache_lookup_time_ms: float = 0.0
@@ -73,22 +66,7 @@ class CompiledBinary:
             shutil.rmtree(self.binary_dir, ignore_errors=True)
 
 
-class LanguageRuntimeProducer(ABC):
-    """
-    Abstract interface for language-specific runtime producers.
-    Coordinates language source instrumentation, compilation/caching (if applicable),
-    and execution backend invocation to produce AlgoLensEvent streams.
-    """
-    @abstractmethod
-    def execute_program(
-        self,
-        source_code: str,
-        entry_func: str = "main",
-        args: List[Any] = None,
-        timeout_sec: float = 12.0,
-        max_events: int = 50000
-    ) -> NativeExecutionResult:
-        pass
+
 
 
 def _demultiplex_output(raw_stdout: Optional[str], event_prefix: str, max_events: int) -> Tuple[List[AlgoLensEvent], str]:
