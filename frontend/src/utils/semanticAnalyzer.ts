@@ -292,39 +292,39 @@ export class SemanticAnalyzer {
         this.memory[k].containerScores.ARRAY += 50;
       }
 
-      // Lexical Clues for Arrays
+      // Lexical Clues for Arrays & Containers (Language-Agnostic: Python, C++, JS)
       if (isCurrentArray && currentLineCode) {
         const line = currentLineCode.trim();
         
-        // Lexical iteration
-        const regexIter = new RegExp(`\\bfor\\s+.*\\s+in\\s+${k}\\b`);
-        const regexRange = new RegExp(`\\bfor\\s+.*\\s+in\\s+range\\s*\\(\\s*len\\s*\\(\\s*${k}\\s*\\)\\s*\\)`);
+        // Lexical iteration (Python: for x in k / range(len(k)), C++: for (auto x : k) / for (int i = 0; i < k.size()))
+        const regexIter = new RegExp(`\\bfor\\s*\\(?.*\\b(?:in|:)\\s*${k}\\b`);
+        const regexRange = new RegExp(`\\bfor\\s*\\(?.*(?:${k}\\.size|${k}\\.length|len\\s*\\(\\s*${k}\\))`);
         
         if (regexIter.test(line) || regexRange.test(line)) {
           this.memory[k].containerScores.ARRAY += 50;
         }
 
-        // Lexical Sort
-        if (line.includes(`${k}.sort()`) || line.includes(`sorted(${k})`)) {
+        // Lexical Sort (Python: k.sort() / sorted(k), C++: std::sort(k.begin(), k.end()))
+        if (line.includes(`${k}.sort`) || line.includes(`sorted(${k})`) || (line.includes(`sort(`) && line.includes(k))) {
           this.memory[k].containerScores.ARRAY += 50;
         }
 
-        // Lexical Stack Hooks
-        if (line.includes(`${k}.pop()`) || line.includes(`${k}.pop_back()`)) {
+        // Lexical Stack Hooks (Python: k.pop(), C++: k.pop_back(), k.top())
+        if (line.includes(`${k}.pop()`) || line.includes(`${k}.pop_back()`) || line.includes(`${k}.top()`)) {
           this.memory[k].containerScores.STACK += 150;
         }
         
-        // Front operations (Queue/Deque clues)
-        if (line.includes(`${k}.pop(0)`) || line.includes(`${k}.popleft()`)) {
+        // Front operations (Queue/Deque clues: k.pop(0), k.popleft(), k.pop_front(), k.front())
+        if (line.includes(`${k}.pop(0)`) || line.includes(`${k}.popleft()`) || line.includes(`${k}.pop_front()`) || line.includes(`${k}.front()`)) {
           this.memory[k].containerScores.QUEUE += 20; 
-        } else if (line.includes(`${k}.insert(0,`)) {
+        } else if (line.includes(`${k}.insert(0,`) || line.includes(`${k}.push_front(`)) {
           this.memory[k].containerScores.ARRAY += 30; 
           this.memory[k].containerScores.STACK -= 30;
           this.memory[k].containerScores.QUEUE -= 30;
         }
 
-        // Tail access
-        if (line.includes(`${k}[-1]`) || line.includes(`${k}[len(${k})-1]`)) {
+        // Tail access (Python: k[-1], C++: k.back())
+        if (line.includes(`${k}[-1]`) || line.includes(`${k}.back()`)) {
           this.memory[k].containerScores.STACK += 10;
         }
 
@@ -333,16 +333,19 @@ export class SemanticAnalyzer {
         const match = regexIndex.exec(line);
         if (match) {
           const inner = match[1].trim();
-          if (inner !== '-1' && !inner.includes(`len(${k})-1`)) {
+          if (inner !== '-1' && !inner.includes(`len(${k})-1`) && !inner.includes(`${k}.size()-1`)) {
             // Don't strongly penalize simple indexing (might just be checking bounds), but slightly boost array
             this.memory[k].containerScores.ARRAY += 10;
           }
         }
         
-        // HEAP explicit detection
-        if (line.includes(`heapq.heappush(${k}`) || 
-            line.includes(`heapq.heappop(${k}`) || 
-            line.includes(`heapq.heapify(${k}`)) {
+        // HEAP / Priority Queue explicit detection (Python: heapq, C++: priority_queue, push_heap)
+        if (line.includes(`heappush`) || 
+            line.includes(`heappop`) || 
+            line.includes(`heapify`) ||
+            line.includes(`priority_queue`) ||
+            line.includes(`push_heap`) ||
+            line.includes(`pop_heap`)) {
           this.memory[k].containerScores.HEAP += 500;
         }
       }
@@ -350,7 +353,7 @@ export class SemanticAnalyzer {
   }
 
   private observeComparisons(currentLineCode: string) {
-    if (!currentLineCode || (!currentLineCode.includes('if ') && !currentLineCode.includes('elif '))) return;
+    if (!currentLineCode || (!currentLineCode.includes('if') && !currentLineCode.includes('while') && !currentLineCode.includes('?'))) return;
 
     if (currentLineCode.includes('>')) {
        const parts = currentLineCode.split('>');
@@ -379,10 +382,10 @@ export class SemanticAnalyzer {
 
   private observeBooleanTransitions(locals: Record<string, any>, prevLocals: Record<string, any>, currentLineCode: string) {
     for (const [k, v] of Object.entries(locals)) {
-      const isBoolStr = v === 'True' || v === 'False';
+      const isBool = typeof v === 'boolean' || v === 'True' || v === 'False' || v === 'true' || v === 'false';
       const prevV = prevLocals[k];
       
-      if (isBoolStr) {
+      if (isBool) {
         // Being initialized to a boolean is weak evidence of a FLAG
         if (prevV === undefined) {
           this.memory[k].roleScores.FLAG += 10;

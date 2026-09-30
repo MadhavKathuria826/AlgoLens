@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-export default function ExplanationPanel({ code, step, previousStep }: any) {
+export default function ExplanationPanel({ code, step, previousStep, eventsCount, stdout }: any) {
   if (!step) {
     return (
       <div className="p-6 text-slate-500 flex items-center justify-center h-full text-sm">
@@ -37,8 +37,18 @@ export default function ExplanationPanel({ code, step, previousStep }: any) {
 
   const filterLocals = (locals: any) => {
     return Object.fromEntries(
-      Object.entries(locals).filter(([k, v]: any) => ((typeof v === 'string' && !v.startsWith('<function') && !v.startsWith('<module') && !v.startsWith('obj_')) || typeof v === 'number'))
+      Object.entries(locals).filter(([k, v]: any) => (
+        (typeof v === 'string' && !v.startsWith('<function') && !v.startsWith('<module') && !v.startsWith('obj_')) || 
+        typeof v === 'number' || 
+        typeof v === 'boolean' || 
+        Array.isArray(v)
+      ))
     );
+  };
+
+  const formatVal = (v: any) => {
+    if (Array.isArray(v)) return `[${v.join(', ')}]`;
+    return String(v);
   };
 
   const filteredCurrent = filterLocals(currentLocals);
@@ -52,30 +62,50 @@ export default function ExplanationPanel({ code, step, previousStep }: any) {
     }
   }
 
-  // Generate Explanation Heuristic
-  let explanation = "Executing current line.";
-  if (currentLineCode.includes('+=')) {
-    explanation = "Adding the value to the running total.";
-  } else if (currentLineCode.includes('-=')) {
-    explanation = "Subtracting from the running total.";
-  } else if (currentLineCode.startsWith('if ') || currentLineCode.startsWith('elif ')) {
-    explanation = "Evaluating condition.";
-  } else if (currentLineCode.startsWith('for ') || currentLineCode.startsWith('while ')) {
-    explanation = "Advancing the loop to the next iteration.";
-  } else if (currentLineCode.includes('=')) {
-    explanation = "Updating variable assignment.";
-  } else if (currentLineCode.startsWith('def ')) {
-    explanation = "Defining function.";
-  } else if (currentLineCode.startsWith('return ')) {
-    explanation = "Returning value from function.";
-  } else if (currentLineCode.includes('print(')) {
-    explanation = "Printing output.";
+  // Check for structural metadata status messages first
+  const structVis = step?.visualizations?.find((v: any) => 
+    v.type === 'AVL_METADATA' || v.type === 'RBT_METADATA' || v.type === 'TRIE_METADATA'
+  );
+  const statusMsg = structVis?.details?.status_message;
+
+  // Generate Language-Agnostic Explanation
+  let explanation = statusMsg || "Executing current line.";
+  if (!statusMsg) {
+    const trimmed = currentLineCode.trim();
+    if (trimmed.includes('++')) {
+      explanation = "Incrementing counter.";
+    } else if (trimmed.includes('--')) {
+      explanation = "Decrementing counter.";
+    } else if (trimmed.includes('+=')) {
+      explanation = "Adding the value to the running total.";
+    } else if (trimmed.includes('-=')) {
+      explanation = "Subtracting from the running total.";
+    } else if (trimmed.startsWith('if ') || trimmed.startsWith('if(') || trimmed.startsWith('elif ') || trimmed.startsWith('else if')) {
+      explanation = "Evaluating condition.";
+    } else if (trimmed.startsWith('for ') || trimmed.startsWith('for(') || trimmed.startsWith('while ') || trimmed.startsWith('while(')) {
+      explanation = "Advancing the loop to the next iteration.";
+    } else if (trimmed.startsWith('return ') || trimmed === 'return;') {
+      explanation = "Returning value from function.";
+    } else if (trimmed.includes('print(') || trimmed.includes('std::cout') || trimmed.includes('printf(') || trimmed.includes('cout <<')) {
+      explanation = "Printing output.";
+    } else if (trimmed.startsWith('def ') || /^(?:void|int|auto|bool|double|float|string)\s+\w+\s*\(/.test(trimmed)) {
+      explanation = "Defining function.";
+    } else if (trimmed.includes('=')) {
+      explanation = "Updating variable assignment.";
+    }
   }
 
   return (
     <div className="flex flex-col h-full bg-[#050508] text-slate-300 font-sans p-6 overflow-y-auto w-full">
       <div className="px-1 py-2 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 mb-6">What's Happening Now</div>
       
+      {eventsCount ? (
+        <div className="mb-6 flex items-center justify-between px-3 py-2 bg-blue-950/30 border border-blue-500/20 rounded-lg text-xs font-mono text-blue-300">
+          <span>Universal Events:</span>
+          <span className="font-semibold text-blue-400">{eventsCount}</span>
+        </div>
+      ) : null}
+
       {/* Current Line */}
       <div className="mb-8">
         <h3 className="text-[10px] text-slate-500 uppercase tracking-widest mb-3">Executing Code</h3>
@@ -116,9 +146,9 @@ export default function ExplanationPanel({ code, step, previousStep }: any) {
               >
                 <span className="font-mono text-emerald-100/70 text-sm">{c.name}:</span>
                 <div className="flex items-center gap-2 font-mono text-sm">
-                  <span className="text-slate-500 line-through">{String(c.old)}</span>
+                  <span className="text-slate-500 line-through">{formatVal(c.old)}</span>
                   <span className="text-emerald-500">→</span>
-                  <span className="text-emerald-400 font-bold">{String(c.new)}</span>
+                  <span className="text-emerald-400 font-bold">{formatVal(c.new)}</span>
                 </div>
               </motion.div>
             ))}
@@ -134,7 +164,7 @@ export default function ExplanationPanel({ code, step, previousStep }: any) {
             {Object.entries(filteredCurrent).map(([k, v]: any) => (
               <div key={k} className="flex justify-between items-center bg-slate-900/50 px-3 py-2 rounded-lg border border-white/5">
                 <span className="font-mono text-slate-400 text-xs">{k}</span>
-                <span className="font-mono text-blue-300 text-sm">{v}</span>
+                <span className="font-mono text-blue-300 text-sm">{formatVal(v)}</span>
               </div>
             ))}
           </div>

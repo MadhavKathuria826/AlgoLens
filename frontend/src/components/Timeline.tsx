@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export default function Timeline({ steps, currentIndex, onNavigate }: any) {
+export default function Timeline({ steps, currentIndex, onNavigate, eventsCount }: any) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,7 +20,9 @@ export default function Timeline({ steps, currentIndex, onNavigate }: any) {
     <div className="h-full w-full max-w-full flex flex-col p-4 overflow-hidden">
       <div className="flex items-center justify-between mb-4 select-none">
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Execution Timeline</h3>
-        <div className="text-xs text-slate-500 px-2 py-1 bg-black/30 rounded">{steps.length} frames</div>
+        <div className="text-xs text-slate-500 px-2 py-1 bg-black/30 rounded">
+          {steps.length} frames{eventsCount ? ` (${eventsCount} events)` : ''}
+        </div>
       </div>
       <div 
         ref={containerRef}

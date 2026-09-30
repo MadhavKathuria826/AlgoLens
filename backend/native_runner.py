@@ -126,13 +126,70 @@ class SubprocessExecutionBackend(NativeExecutionBackend):
     ) -> NativeExecutionResult:
         t_exec_start = time.perf_counter()
         run_res = None
+
+        # Prepare sanitized environment
+        clean_env = {
+            "PATH": os.environ.get("PATH", ""),
+            "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+            "TMP": os.environ.get("TMP", "/tmp"),
+            "TEMP": os.environ.get("TEMP", "/tmp")
+        }
+
+        run_kwargs = {
+            "capture_output": True,
+            "text": True,
+            "timeout": timeout_sec,
+            "env": clean_env,
+            "cwd": compiled.binary_dir
+        }
+
+        # Workstream 9: C++ Sandbox Parity on Linux/POSIX containers
+        if sys.platform != "win32":
+            def linux_sandbox_preexec():
+                try:
+                    import resource
+                    # 1. CPU Time Limit
+                    cpu_limit = max(1, int(timeout_sec + 2))
+                    try:
+                        resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit, cpu_limit + 2))
+                    except (ValueError, OSError):
+                        pass
+                    # 2. Virtual Memory Ceiling (256 MB)
+                    mem_bytes = 256 * 1024 * 1024
+                    try:
+                        resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
+                    except (ValueError, OSError):
+                        pass
+                    # 3. Limit Processes/Threads (prevent fork bombs)
+                    try:
+                        resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
+                    except (ValueError, OSError):
+                        pass
+                    # 4. Limit File Descriptors
+                    try:
+                        resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+                    except (ValueError, OSError):
+                        pass
+                except Exception:
+                    pass
+
+                # Drop privileges to algolens-sandbox user if running as root
+                if hasattr(os, "getuid") and os.getuid() == 0:
+                    try:
+                        import pwd
+                        sb = pwd.getpwnam("algolens-sandbox")
+                        os.setgid(sb.pw_gid)
+                        os.setuid(sb.pw_uid)
+                    except Exception:
+                        pass
+
+            run_kwargs["preexec_fn"] = linux_sandbox_preexec
+
         for attempt in range(8):
             try:
                 run_res = subprocess.run(
                     [compiled.exe_path],
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout_sec
+                    **run_kwargs
                 )
                 break
             except OSError as oe:

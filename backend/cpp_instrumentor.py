@@ -22,6 +22,7 @@ Uses libclang AST inspection to perform syntax-preserving instrumentation:
 
 import os
 import sys
+import re
 from typing import List, Tuple, Dict, Any, Optional, Set
 from clang.cindex import Index, CursorKind, TypeKind, Cursor, TranslationUnit
 
@@ -150,7 +151,10 @@ class CPPInstrumentor:
         )
         offset_shift = len(mock_preamble)
         line_shift = mock_preamble.count("\n")
-        full_source = mock_preamble + source_code
+        # Mask #include directives during libclang AST analysis so mock_preamble is used
+        # Exact length and line numbers are preserved by space-padding
+        masked_code = re.sub(r'#include[^\n]*', lambda m: '//' + ' ' * (len(m.group(0)) - 2), source_code)
+        full_source = mock_preamble + masked_code
 
         tu = self.index.parse(
             "input.cpp",

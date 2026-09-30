@@ -129,7 +129,7 @@ class UniversalStateReducer:
 
         # 1. Execution & Frame Lifecycle
         if ev_type == "PROG_START":
-            entry_func = payload.get("entry_function", "main")
+            entry_func = payload.get("entry_function") or "main"
             frame_id = event.frame_id or "frame_0"
             scope_id = event.scope_id or "scope_0"
 
@@ -137,7 +137,7 @@ class UniversalStateReducer:
                 frame_id=frame_id,
                 func_name=entry_func,
                 active_scope_id=scope_id,
-                args=payload.get("args", {})
+                args=payload.get("args") or {}
             )
             scope = UniversalScope(
                 scope_id=scope_id,
@@ -151,7 +151,7 @@ class UniversalStateReducer:
 
         elif ev_type == "FRAME_PUSH":
             frame_id = payload.get("frame_id") or event.frame_id
-            func_name = payload.get("func_name", "anonymous")
+            func_name = payload.get("func_name") or "anonymous"
             parent_id = state.call_stack[-1] if state.call_stack else None
             scope_id = event.scope_id or f"scope_{len(state.scopes)}"
 

@@ -97,33 +97,79 @@ class PythonObjectRegistry:
             fields: Dict[str, UniversalValue] = {}
             if isinstance(val, list):
                 type_name = "list"
-                self._snapshots[obj_id] = [copy.deepcopy(x) if not isinstance(x, (list, dict, set, tuple)) else x for x in val]
                 for i, elem in enumerate(val):
                     fields[str(i)] = self.to_universal_value(elem)
                 fields["length"] = PrimitiveValue(type_name="int", value=len(val))
+                self._snapshots[obj_id] = [fields[str(i)] for i in range(len(val))]
             elif isinstance(val, tuple):
                 type_name = "tuple"
-                self._snapshots[obj_id] = tuple(val)
                 for i, elem in enumerate(val):
                     fields[str(i)] = self.to_universal_value(elem)
                 fields["length"] = PrimitiveValue(type_name="int", value=len(val))
+                self._snapshots[obj_id] = [fields[str(i)] for i in range(len(val))]
             elif isinstance(val, dict):
                 type_name = "dict"
-                self._snapshots[obj_id] = {k: copy.deepcopy(v) if not isinstance(v, (list, dict, set, tuple)) else v for k, v in val.items()}
                 for k, v in val.items():
                     fields[str(k)] = self.to_universal_value(v)
                 fields["size"] = PrimitiveValue(type_name="int", value=len(val))
+                self._snapshots[obj_id] = {str(k): fields[str(k)] for k in val.keys()}
             elif isinstance(val, set):
                 type_name = "set"
-                self._snapshots[obj_id] = set(val)
                 for elem in sorted(val, key=lambda x: str(x)):
                     fields[str(elem)] = self.to_universal_value(elem)
                 fields["size"] = PrimitiveValue(type_name="int", value=len(val))
+                self._snapshots[obj_id] = set(val)
             else:
                 type_name = type(val).__name__
                 self._snapshots[obj_id] = str(val)
 
             # Emit OBJECT_ALLOCATE event
+            self.tracer.emit_event(
+                event_type="OBJECT_ALLOCATE",
+                payload={
+                    "object_id": obj_id,
+                    "type_name": type_name,
+                    "fields": {k: (v.model_dump() if hasattr(v, "model_dump") else v.dict()) for k, v in fields.items()}
+                }
+            )
+            return ObjectRef(object_id=obj_id)
+
+        # Custom Class / Object Instances (e.g., TreeNode, ListNode, TrieNode, or any object with attributes)
+        if (hasattr(val, '__dict__') or hasattr(type(val), '__slots__')) and not (
+            inspect.isclass(val) or inspect.isroutine(val) or inspect.ismodule(val)
+        ):
+            py_id = id(val)
+            if py_id in self._id_to_obj_id:
+                return ObjectRef(object_id=self._id_to_obj_id[py_id])
+
+            obj_id = self._mint_object_id()
+            self._id_to_obj_id[py_id] = obj_id
+            self._tracked_objects[obj_id] = val
+
+            raw_attrs = {}
+            if hasattr(val, '__dict__'):
+                raw_attrs.update(val.__dict__)
+            if hasattr(type(val), '__slots__'):
+                slots = type(val).__slots__
+                if isinstance(slots, str):
+                    slots = [slots]
+                for s in slots:
+                    if hasattr(val, s):
+                        raw_attrs[s] = getattr(val, s)
+
+            type_name = type(val).__name__
+            if type_name == 'LocalTreeNode':
+                type_name = 'TreeNode'
+            elif type_name == 'LocalListNode':
+                type_name = 'ListNode'
+
+            fields: Dict[str, UniversalValue] = {}
+            for k, v in raw_attrs.items():
+                if not k.startswith('__') and not (inspect.isclass(v) or inspect.isroutine(v) or inspect.ismodule(v)):
+                    fields[str(k)] = self.to_universal_value(v)
+
+            self._snapshots[obj_id] = {k: fields[k] for k in fields}
+
             self.tracer.emit_event(
                 event_type="OBJECT_ALLOCATE",
                 payload={
@@ -157,45 +203,41 @@ class PythonObjectRegistry:
         for obj_id, live_obj in list(self._tracked_objects.items()):
             if isinstance(live_obj, list):
                 old_snap = self._snapshots[obj_id]
-                new_elems = list(live_obj)
-                if new_elems != old_snap:
+                new_snap = [self.to_universal_value(elem) for elem in live_obj]
+                if new_snap != old_snap:
                     old_len = len(old_snap)
-                    new_len = len(new_elems)
+                    new_len = len(new_snap)
                     min_len = min(old_len, new_len)
                     for i in range(min_len):
-                        if old_snap[i] != new_elems[i]:
-                            old_u = self.to_universal_value(old_snap[i])
-                            new_u = self.to_universal_value(new_elems[i])
+                        if old_snap[i] != new_snap[i]:
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
                                     "object_id": obj_id,
                                     "field": str(i),
-                                    "old_value": old_u.model_dump() if hasattr(old_u, "model_dump") else old_u.dict(),
-                                    "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
+                                    "old_value": old_snap[i].model_dump() if hasattr(old_snap[i], "model_dump") else old_snap[i].dict(),
+                                    "new_value": new_snap[i].model_dump() if hasattr(new_snap[i], "model_dump") else new_snap[i].dict()
                                 }
                             )
                     if new_len > old_len:
                         for i in range(old_len, new_len):
-                            new_u = self.to_universal_value(new_elems[i])
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
                                     "object_id": obj_id,
                                     "field": str(i),
                                     "old_value": Uninitialized().model_dump(),
-                                    "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
+                                    "new_value": new_snap[i].model_dump() if hasattr(new_snap[i], "model_dump") else new_snap[i].dict()
                                 }
                             )
                     elif new_len < old_len:
                         for i in range(new_len, old_len):
-                            old_u = self.to_universal_value(old_snap[i])
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
                                     "object_id": obj_id,
                                     "field": str(i),
-                                    "old_value": old_u.model_dump() if hasattr(old_u, "model_dump") else old_u.dict(),
+                                    "old_value": old_snap[i].model_dump() if hasattr(old_snap[i], "model_dump") else old_snap[i].dict(),
                                     "new_value": Uninitialized().model_dump()
                                 }
                             )
@@ -209,15 +251,14 @@ class PythonObjectRegistry:
                                 "new_value": PrimitiveValue(type_name="int", value=new_len).model_dump()
                             }
                         )
-                    self._snapshots[obj_id] = [copy.deepcopy(x) if not isinstance(x, (list, dict, set, tuple)) else x for x in new_elems]
+                    self._snapshots[obj_id] = new_snap
 
             elif isinstance(live_obj, dict):
                 old_snap = self._snapshots[obj_id]
-                new_dict = dict(live_obj)
-                if new_dict != old_snap:
-                    for k, v in new_dict.items():
+                new_snap = {str(k): self.to_universal_value(v) for k, v in live_obj.items()}
+                if new_snap != old_snap:
+                    for k, new_u in new_snap.items():
                         if k not in old_snap:
-                            new_u = self.to_universal_value(v)
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
@@ -227,9 +268,8 @@ class PythonObjectRegistry:
                                     "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
                                 }
                             )
-                        elif old_snap[k] != v:
-                            old_u = self.to_universal_value(old_snap[k])
-                            new_u = self.to_universal_value(v)
+                        elif old_snap[k] != new_u:
+                            old_u = old_snap[k]
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
@@ -239,9 +279,8 @@ class PythonObjectRegistry:
                                     "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
                                 }
                             )
-                    for k, v in old_snap.items():
-                        if k not in new_dict:
-                            old_u = self.to_universal_value(v)
+                    for k, old_u in old_snap.items():
+                        if k not in new_snap:
                             self.tracer.emit_event(
                                 event_type="OBJECT_MUTATE",
                                 payload={
@@ -251,17 +290,17 @@ class PythonObjectRegistry:
                                     "new_value": Uninitialized().model_dump()
                                 }
                             )
-                    if len(new_dict) != len(old_snap):
+                    if len(new_snap) != len(old_snap):
                         self.tracer.emit_event(
                             event_type="OBJECT_MUTATE",
                             payload={
                                 "object_id": obj_id,
                                 "field": "size",
                                 "old_value": PrimitiveValue(type_name="int", value=len(old_snap)).model_dump(),
-                                "new_value": PrimitiveValue(type_name="int", value=len(new_dict)).model_dump()
+                                "new_value": PrimitiveValue(type_name="int", value=len(new_snap)).model_dump()
                             }
                         )
-                    self._snapshots[obj_id] = {k: copy.deepcopy(v) if not isinstance(v, (list, dict, set, tuple)) else v for k, v in new_dict.items()}
+                    self._snapshots[obj_id] = new_snap
 
             elif isinstance(live_obj, set):
                 old_snap = self._snapshots[obj_id]
@@ -300,6 +339,64 @@ class PythonObjectRegistry:
                             }
                         )
                     self._snapshots[obj_id] = set(new_set)
+
+            elif (hasattr(live_obj, '__dict__') or hasattr(type(live_obj), '__slots__')) and not (
+                inspect.isclass(live_obj) or inspect.isroutine(live_obj) or inspect.ismodule(live_obj)
+            ):
+                old_snap = self._snapshots.get(obj_id)
+                if not isinstance(old_snap, dict):
+                    continue
+                raw_attrs = {}
+                if hasattr(live_obj, '__dict__'):
+                    raw_attrs.update(live_obj.__dict__)
+                if hasattr(type(live_obj), '__slots__'):
+                    slots = type(live_obj).__slots__
+                    if isinstance(slots, str):
+                        slots = [slots]
+                    for s in slots:
+                        if hasattr(live_obj, s):
+                            raw_attrs[s] = getattr(live_obj, s)
+
+                cur_attrs = {
+                    str(k): self.to_universal_value(v) for k, v in raw_attrs.items()
+                    if not k.startswith('__') and not (inspect.isclass(v) or inspect.isroutine(v) or inspect.ismodule(v))
+                }
+
+                if cur_attrs != old_snap:
+                    for k, new_u in cur_attrs.items():
+                        if k not in old_snap:
+                            self.tracer.emit_event(
+                                event_type="OBJECT_MUTATE",
+                                payload={
+                                    "object_id": obj_id,
+                                    "field": str(k),
+                                    "old_value": Uninitialized().model_dump(),
+                                    "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
+                                }
+                            )
+                        elif old_snap[k] != new_u:
+                            old_u = old_snap[k]
+                            self.tracer.emit_event(
+                                event_type="OBJECT_MUTATE",
+                                payload={
+                                    "object_id": obj_id,
+                                    "field": str(k),
+                                    "old_value": old_u.model_dump() if hasattr(old_u, "model_dump") else old_u.dict(),
+                                    "new_value": new_u.model_dump() if hasattr(new_u, "model_dump") else new_u.dict()
+                                }
+                            )
+                    for k, old_u in old_snap.items():
+                        if k not in cur_attrs:
+                            self.tracer.emit_event(
+                                event_type="OBJECT_MUTATE",
+                                payload={
+                                    "object_id": obj_id,
+                                    "field": str(k),
+                                    "old_value": old_u.model_dump() if hasattr(old_u, "model_dump") else old_u.dict(),
+                                    "new_value": Uninitialized().model_dump()
+                                }
+                            )
+                    self._snapshots[obj_id] = cur_attrs
 
 
 class FrameState:
@@ -476,7 +573,7 @@ class _PythonTracer:
 
                 self.emit_event(
                     event_type="PROG_START",
-                    payload={"entry_function": self.entry_func, "args": {}},
+                    payload={"entry_function": self.entry_func or "main", "args": {}},
                     line=0
                 )
             else:
@@ -644,13 +741,33 @@ class PythonRuntimeProducer(LanguageRuntimeProducer):
         entry_func: str = "main",
         args: Optional[List[Any]] = None,
         timeout_sec: float = 12.0,
-        max_events: int = 50000
+        max_events: int = 50000,
+        max_recursion_depth: int = 1000,
+        isolated: bool = True
     ) -> ExecutionResult:
         """
         Executes Python source code according to the Universal Runtime Contract.
         Produces deterministic AlgoLensEvent stream, separated stdout, and error isolation.
+        When isolated=True, dispatches execution to an isolated subprocess worker with OS resource limits.
         """
+        if isolated:
+            from isolated_python_runner import IsolatedPythonRunner
+            runner = IsolatedPythonRunner()
+            return runner.execute(
+                source_code=source_code,
+                entry_func=entry_func,
+                args=args,
+                timeout_sec=timeout_sec,
+                max_events=max_events,
+                max_recursion_depth=max_recursion_depth
+            )
+
         t_start = time.perf_counter()
+        if max_recursion_depth > sys.getrecursionlimit():
+            try:
+                sys.setrecursionlimit(max_recursion_depth + 100)
+            except Exception:
+                pass
 
         # Step 1: Parse AST & Validate Syntax
         try:

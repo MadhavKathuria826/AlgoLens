@@ -15,11 +15,33 @@ def configure_libclang():
             if os.path.exists(fpath):
                 Config.set_library_file(fpath)
                 return
-        raise RuntimeError(f"No libclang binary found in clang.native directory: {native_dir}")
-    except Exception as e:
-        import logging
-        logging.error(f"Failed to configure libclang from clang.native: {e}")
-        raise
+    except Exception:
+        pass
+
+    # Fallback to system libclang via ctypes or common Linux/UNIX search paths
+    found = ctypes.util.find_library('clang')
+    if found:
+        try:
+            Config.set_library_file(found)
+            return
+        except Exception:
+            pass
+
+    import glob
+    candidates = (
+        glob.glob('/usr/lib/llvm-*/lib/libclang.so*') +
+        glob.glob('/usr/lib/*-linux-gnu/libclang*.so*') +
+        glob.glob('/usr/local/lib/libclang*.so*')
+    )
+    for c in candidates:
+        if os.path.exists(c):
+            try:
+                Config.set_library_file(c)
+                return
+            except Exception:
+                continue
+
+    raise RuntimeError("No libclang binary found in clang.native or system library paths.")
 
 configure_libclang()
 

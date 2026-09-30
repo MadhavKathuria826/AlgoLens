@@ -1,0 +1,33 @@
+services:
+  # AlgoLens Backend Service (Docker container with Clang++ & isolated sandbox)
+  - type: web
+    name: algolens-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/version
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://127.0.0.1:3000,https://algolens.dev,https://algolens.vercel.app"
+
+  # AlgoLens Frontend Service (Next.js 16)
+  - type: web
+    name: algolens-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    plan: free
+    region: oregon
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: algolens-backend
+          property: host

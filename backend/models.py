@@ -22,6 +22,11 @@ class Step(BaseModel):
     isTreeAlgorithm: Optional[bool] = False
     isLinkedListAlgorithm: Optional[bool] = False
 
+try:
+    from event_models import AlgoLensEvent
+except ImportError:
+    AlgoLensEvent = Any
+
 class CodeExecutionResponse(BaseModel):
     steps: List[Step]
     error: Optional[str] = None
@@ -30,3 +35,7 @@ class CodeExecutionResponse(BaseModel):
     candidates: Optional[List[str]] = None
     params: Optional[List[str]] = None
     recurrence_relations: Optional[List[str]] = None
+    events: Optional[List[AlgoLensEvent]] = None
+    user_stdout: Optional[str] = None
+    diagnostics: Optional[str] = None
+    request_id: Optional[str] = None

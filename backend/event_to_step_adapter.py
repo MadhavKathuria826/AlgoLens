@@ -63,6 +63,29 @@ class EventToStepAdapter:
             else:
                 if isinstance(binding.value, ObjectRef) and binding.value.object_id in self.state.heap and not self.state.heap[binding.value.object_id].is_alive:
                     locals_snapshot[name] = f"<dangling:{binding.value.object_id}>"
+                elif isinstance(binding.value, ObjectRef) and binding.value.object_id in self.state.heap:
+                    heap_obj = self.state.heap[binding.value.object_id]
+                    if heap_obj.type_name == "list":
+                        len_field = heap_obj.fields.get("length")
+                        length = len_field.value if hasattr(len_field, "value") else (int(len_field) if len_field is not None else 0)
+                        locals_snapshot[name] = [
+                            self.serialize_value(heap_obj.fields.get(str(i)))
+                            for i in range(length)
+                        ]
+                    elif heap_obj.type_name == "dict":
+                        locals_snapshot[name] = {
+                            fk: self.serialize_value(fv)
+                            for fk, fv in heap_obj.fields.items()
+                            if fk not in ("size", "length")
+                        }
+                    elif heap_obj.type_name == "set":
+                        locals_snapshot[name] = [
+                            self.serialize_value(fv)
+                            for fk, fv in heap_obj.fields.items()
+                            if fk not in ("size", "length")
+                        ]
+                    else:
+                        locals_snapshot[name] = self.serialize_value(binding.value)
                 else:
                     locals_snapshot[name] = self.serialize_value(binding.value)
 
@@ -96,11 +119,13 @@ class EventToStepAdapter:
         visualizations: List[VisualizationData] = []
         for k, v in locals_snapshot.items():
             c_type = container_types.get(k)
+            binding = visible_bindings.get(k)
+            b_obj_id = binding.value.object_id if (binding and isinstance(binding.value, ObjectRef)) else None
             if isinstance(v, list):
                 if c_type == 'stack':
                     visualizations.append(VisualizationData(
                         type='Stack',
-                        details={'name': k, 'value': list(v), 'obj_id': f"cpp_stack_{k}"}
+                        details={'name': k, 'value': list(v), 'obj_id': b_obj_id or f"cpp_stack_{k}"}
                     ))
                 elif c_type in ('priority_queue', 'priority_queue_min'):
                     formatted_heap = []
@@ -111,12 +136,12 @@ class EventToStepAdapter:
                             formatted_heap.append(item)
                     visualizations.append(VisualizationData(
                         type='Heap',
-                        details={'name': k, 'value': formatted_heap, 'obj_id': f"cpp_heap_{k}"}
+                        details={'name': k, 'value': formatted_heap, 'obj_id': b_obj_id or f"cpp_heap_{k}"}
                     ))
                 else:
                     visualizations.append(VisualizationData(
                         type='Array',
-                        details={'name': k, 'value': list(v), 'obj_id': f"cpp_list_{k}"}
+                        details={'name': k, 'value': list(v), 'obj_id': b_obj_id or f"cpp_list_{k}"}
                     ))
             elif isinstance(v, dict):
                 dict_str = "{" + ", ".join(f"{json.dumps(str(dk))}: {json.dumps(dv)}" for dk, dv in v.items()) + "}"

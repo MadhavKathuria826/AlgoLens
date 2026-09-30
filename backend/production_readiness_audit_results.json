@@ -1,0 +1,172 @@
+{
+  "sandbox": {
+    "cpu_runaway": {
+      "event_ceiling_enforced": true,
+      "timeout_ceiling_enforced": true,
+      "timeout_elapsed_sec": 1.0820499999681488
+    },
+    "network_access": {
+      "blocked": true,
+      "error": "TypeError: 'NoneType' object is not callable",
+      "survived": true
+    },
+    "env_leakage": {
+      "scrubbed": true,
+      "error": null
+    },
+    "memory_exhaustion": {
+      "handled": true,
+      "error": "Execution timed out after 4.0s (process killed by supervisor)."
+    },
+    "process_creation": {
+      "result": false,
+      "error": "TypeError: 'NoneType' object is not callable"
+    },
+    "subsequent_execution_healthy": true,
+    "cpp_syntax_safety": {
+      "rejected_cleanly": true,
+      "error": "Syntax Error during AST analysis: C++ parsing errors:\nLine 1: expected ';' after return statement"
+    }
+  },
+  "concurrency": {
+    "concurrency_count": 8,
+    "total_elapsed_sec": 1.300476299948059,
+    "isolation_verified": false
+  },
+  "cache": {
+    "cold_ms": 1209.6034000860527,
+    "warm_ms": 42.26869996637106,
+    "speedup": 28.61700031106734,
+    "self_healing": true,
+    "stats": {
+      "entries": 2,
+      "total_size_bytes": 4053163
+    }
+  },
+  "e2e_workloads": {
+    "PY_01_scalars": {
+      "success": true,
+      "events": 9,
+      "steps": 4,
+      "payload_bytes": 865,
+      "latency_ms": 189.51399996876717
+    },
+    "PY_02_list_mutation": {
+      "success": true,
+      "events": 15,
+      "steps": 5,
+      "payload_bytes": 1555,
+      "latency_ms": 224.32839998509735
+    },
+    "PY_03_recursion": {
+      "success": true,
+      "events": 22,
+      "steps": 7,
+      "payload_bytes": 1403,
+      "latency_ms": 172.9287999914959
+    },
+    "PY_04_function_calls": {
+      "success": true,
+      "events": 11,
+      "steps": 4,
+      "payload_bytes": 780,
+      "latency_ms": 168.01779996603727
+    },
+    "PY_05_aliasing": {
+      "success": true,
+      "events": 11,
+      "steps": 4,
+      "payload_bytes": 1371,
+      "latency_ms": 158.86359999421984
+    },
+    "PY_06_avl_tree": {
+      "success": true,
+      "events": 53,
+      "steps": 19,
+      "payload_bytes": 15135,
+      "latency_ms": 161.1515999538824
+    },
+    "PY_07_trie": {
+      "success": true,
+      "events": 33,
+      "steps": 11,
+      "payload_bytes": 6258,
+      "latency_ms": 161.6981999250129
+    },
+    "PY_08_dp_fib": {
+      "success": true,
+      "events": 29,
+      "steps": 13,
+      "payload_bytes": 5968,
+      "latency_ms": 159.41940003540367
+    },
+    "CPP_01_scalars": {
+      "success": true,
+      "events": 10,
+      "steps": 4,
+      "payload_bytes": 865,
+      "latency_ms": 1132.494100020267
+    },
+    "CPP_02_vector": {
+      "success": true,
+      "events": 10,
+      "steps": 4,
+      "payload_bytes": 919,
+      "latency_ms": 1257.454099948518
+    },
+    "CPP_03_stack_queue": {
+      "success": true,
+      "events": 12,
+      "steps": 5,
+      "payload_bytes": 1270,
+      "latency_ms": 1213.1744999205694
+    },
+    "CPP_04_pointers": {
+      "success": true,
+      "events": 11,
+      "steps": 4,
+      "payload_bytes": 939,
+      "latency_ms": 1209.4415000174195
+    },
+    "CPP_05_dynamic_allocation": {
+      "success": true,
+      "events": 11,
+      "steps": 4,
+      "payload_bytes": 975,
+      "latency_ms": 1236.8334999773651
+    },
+    "CPP_06_references": {
+      "success": true,
+      "events": 10,
+      "steps": 3,
+      "payload_bytes": 596,
+      "latency_ms": 1123.8378999987617
+    }
+  },
+  "scale_benchmarks": {
+    "Small (100 events target)": {
+      "events": 84,
+      "steps": 33,
+      "exec_ms": 168.47389994654804,
+      "adapter_ms": 0.7037000032141805,
+      "json_ms": 0.3005999606102705,
+      "size_kb": 14.6630859375
+    },
+    "Medium (1,000 events target)": {
+      "events": 759,
+      "steps": 303,
+      "exec_ms": 203.94360006321222,
+      "adapter_ms": 11.264200089499354,
+      "json_ms": 7.274199975654483,
+      "size_kb": 527.646484375
+    },
+    "Large (5,000 events target)": {
+      "events": 3759,
+      "steps": 1503,
+      "exec_ms": 1119.2471999675035,
+      "adapter_ms": 255.33279997762293,
+      "json_ms": 152.8534999815747,
+      "size_kb": 12422.5224609375
+    }
+  }
+}

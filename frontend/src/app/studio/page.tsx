@@ -16,6 +16,8 @@ import SettingsModal from '@/components/SettingsModal';
 import TestCaseModal from '@/components/TestCaseModal';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { AlgoLensEvent } from '@/types/events';
+import { validateAlgoLensEvents } from '@/utils/eventProtocol';
 
 
 const DEFAULT_STARTER_CODE: Record<string, string> = {
@@ -55,6 +57,8 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
     return DEFAULT_STARTER_CODE[lang] || DEFAULT_STARTER_CODE.python;
   });
   const [steps, setSteps] = useState<any[]>([]);
+  const [events, setEvents] = useState<AlgoLensEvent[]>([]);
+  const [userStdout, setUserStdout] = useState<string>('');
   const [recurrenceRelations, setRecurrenceRelations] = useState<string[]>([]);
   const prevLanguageRef = useRef(settings.language);
 
@@ -216,6 +220,18 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
       } else if (res.data.steps) {
         setIsModalOpen(false);
         setRecurrenceRelations(res.data.recurrence_relations || []);
+        if (res.data.events) {
+          const valRes = validateAlgoLensEvents(res.data.events);
+          if (valRes.valid) {
+            setEvents(valRes.events);
+          } else {
+            console.warn("AlgoLens event validation warning:", valRes.error);
+            setEvents(res.data.events);
+          }
+        } else {
+          setEvents([]);
+        }
+        setUserStdout(res.data.user_stdout || '');
         const codeLines = code.split('\n');
         
         const buildSemanticInputs = (s: any) => {
@@ -320,16 +336,25 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
       }
     } catch (err: any) {
       console.error(err);
+      let errorMsg = "Execution request failed.";
       if (err.code === 'ECONNABORTED' || (err.message && err.message.includes('timeout'))) {
-        setSteps([{
-          step_number: 1,
-          line_number: 0,
-          event_type: 'error',
-          locals: {},
-          visualizations: [{ type: 'Error', details: { msg: `Execution timed out after ${settings.executionTimeoutMs / 1000} seconds. You might have an infinite loop or recursion.` } }]
-        }]);
-        setCurrentStepIdx(0);
+        errorMsg = `Execution timed out after ${settings.executionTimeoutMs / 1000} seconds. You might have an infinite loop or recursion.`;
+      } else if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        errorMsg = typeof detail === 'object' && detail.error ? detail.error : String(detail);
+      } else if (err.message) {
+        errorMsg = err.message;
       }
+      const reqId = err.response?.headers?.["x-request-id"] || err.response?.data?.detail?.request_id;
+      const displayMsg = reqId ? `${errorMsg} [${reqId}]` : errorMsg;
+      setSteps([{
+        step_number: 1,
+        line_number: 0,
+        event_type: 'error',
+        locals: {},
+        visualizations: [{ type: 'Error', details: { msg: displayMsg } }]
+      }]);
+      setCurrentStepIdx(0);
     }
     setIsLoading(false);
   };
@@ -488,7 +513,13 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
           <div className="w-[25%] panel-surface flex flex-col !p-0 overflow-hidden">
             <div className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase border-b border-white/5 bg-bg-surface z-10">Inspector</div>
             <div className="flex-1 overflow-auto bg-bg-surface">
-              <ExplanationPanel code={code} step={currentStep} previousStep={previousStep} />
+              <ExplanationPanel 
+                code={code} 
+                step={currentStep} 
+                previousStep={previousStep} 
+                eventsCount={events.length}
+                stdout={userStdout}
+              />
             </div>
           </div>
         </div>
@@ -499,6 +530,7 @@ function StudioInner({ onBack }: { onBack?: () => void }) {
             steps={steps} 
             currentIndex={currentStepIdx} 
             onNavigate={setCurrentStepIdx} 
+            eventsCount={events.length}
           />
         </div>
       </div>
