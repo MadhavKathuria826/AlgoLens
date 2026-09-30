@@ -3,7 +3,7 @@
     "cpu_runaway": {
       "event_ceiling_enforced": true,
       "timeout_ceiling_enforced": true,
-      "timeout_elapsed_sec": 1.0820499999681488
+      "timeout_elapsed_sec": 1.0394870999734849
     },
     "network_access": {
       "blocked": true,
@@ -30,13 +30,13 @@
   },
   "concurrency": {
     "concurrency_count": 8,
-    "total_elapsed_sec": 1.300476299948059,
-    "isolation_verified": false
+    "total_elapsed_sec": 0.20561420009471476,
+    "isolation_verified": true
   },
   "cache": {
-    "cold_ms": 1209.6034000860527,
-    "warm_ms": 42.26869996637106,
-    "speedup": 28.61700031106734,
+    "cold_ms": 1173.6233999254182,
+    "warm_ms": 44.246000004932284,
+    "speedup": 26.524960443759653,
     "self_healing": true,
     "stats": {
       "entries": 2,
@@ -49,123 +49,123 @@
       "events": 9,
       "steps": 4,
       "payload_bytes": 865,
-      "latency_ms": 189.51399996876717
+      "latency_ms": 156.6455999854952
     },
     "PY_02_list_mutation": {
       "success": true,
       "events": 15,
       "steps": 5,
       "payload_bytes": 1555,
-      "latency_ms": 224.32839998509735
+      "latency_ms": 163.46350009553134
     },
     "PY_03_recursion": {
       "success": true,
       "events": 22,
       "steps": 7,
       "payload_bytes": 1403,
-      "latency_ms": 172.9287999914959
+      "latency_ms": 161.05720004998147
     },
     "PY_04_function_calls": {
       "success": true,
       "events": 11,
       "steps": 4,
       "payload_bytes": 780,
-      "latency_ms": 168.01779996603727
+      "latency_ms": 163.34059997461736
     },
     "PY_05_aliasing": {
       "success": true,
       "events": 11,
       "steps": 4,
       "payload_bytes": 1371,
-      "latency_ms": 158.86359999421984
+      "latency_ms": 164.16320006828755
     },
     "PY_06_avl_tree": {
       "success": true,
       "events": 53,
       "steps": 19,
       "payload_bytes": 15135,
-      "latency_ms": 161.1515999538824
+      "latency_ms": 164.0212000347674
     },
     "PY_07_trie": {
       "success": true,
       "events": 33,
       "steps": 11,
       "payload_bytes": 6258,
-      "latency_ms": 161.6981999250129
+      "latency_ms": 154.58219998981804
     },
     "PY_08_dp_fib": {
       "success": true,
       "events": 29,
       "steps": 13,
       "payload_bytes": 5968,
-      "latency_ms": 159.41940003540367
+      "latency_ms": 161.53649997431785
     },
     "CPP_01_scalars": {
       "success": true,
       "events": 10,
       "steps": 4,
       "payload_bytes": 865,
-      "latency_ms": 1132.494100020267
+      "latency_ms": 1137.8100999863818
     },
     "CPP_02_vector": {
       "success": true,
       "events": 10,
       "steps": 4,
       "payload_bytes": 919,
-      "latency_ms": 1257.454099948518
+      "latency_ms": 1189.0945999184623
     },
     "CPP_03_stack_queue": {
       "success": true,
       "events": 12,
       "steps": 5,
       "payload_bytes": 1270,
-      "latency_ms": 1213.1744999205694
+      "latency_ms": 1199.6524999849498
     },
     "CPP_04_pointers": {
       "success": true,
       "events": 11,
       "steps": 4,
       "payload_bytes": 939,
-      "latency_ms": 1209.4415000174195
+      "latency_ms": 1202.6527000125498
     },
     "CPP_05_dynamic_allocation": {
       "success": true,
       "events": 11,
       "steps": 4,
       "payload_bytes": 975,
-      "latency_ms": 1236.8334999773651
+      "latency_ms": 1204.247299931012
     },
     "CPP_06_references": {
       "success": true,
       "events": 10,
       "steps": 3,
       "payload_bytes": 596,
-      "latency_ms": 1123.8378999987617
+      "latency_ms": 1132.146800053306
     }
   },
   "scale_benchmarks": {
     "Small (100 events target)": {
       "events": 84,
       "steps": 33,
-      "exec_ms": 168.47389994654804,
-      "adapter_ms": 0.7037000032141805,
-      "json_ms": 0.3005999606102705,
+      "exec_ms": 158.92230009194463,
+      "adapter_ms": 0.5645999917760491,
+      "json_ms": 0.2628999063745141,
       "size_kb": 14.6630859375
     },
     "Medium (1,000 events target)": {
       "events": 759,
       "steps": 303,
-      "exec_ms": 203.94360006321222,
-      "adapter_ms": 11.264200089499354,
-      "json_ms": 7.274199975654483,
+      "exec_ms": 209.67829995788634,
+      "adapter_ms": 11.702300049364567,
+      "json_ms": 7.920400006696582,
       "size_kb": 527.646484375
     },
     "Large (5,000 events target)": {
       "events": 3759,
       "steps": 1503,
-      "exec_ms": 1119.2471999675035,
-      "adapter_ms": 255.33279997762293,
-      "json_ms": 152.8534999815747,
+      "exec_ms": 1047.5376999238506,
+      "adapter_ms": 234.05420000199229,
+      "json_ms": 162.30429999995977,
       "size_kb": 12422.5224609375
     }
   }

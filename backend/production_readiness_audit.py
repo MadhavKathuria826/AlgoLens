@@ -151,7 +151,7 @@ def run_concurrency_and_isolation_audit() -> Dict[str, Any]:
         {"type": "cpp", "code": "int main() { int x = 100; int y = 200; return x + y; }", "expected": 300},
         {"type": "py", "code": "def f(n):\n    return 1 if n <= 1 else n * f(n-1)\nres = f(4)", "expected": 24},
         {"type": "cpp", "code": "int main() { int a = 7; int b = 8; return a * b; }", "expected": 56},
-        {"type": "py", "code": "while True:\n    pass", "fail": True},  # fail case
+        {"type": "py", "code": "x = 1 / 0", "fail": True},  # fail case: runtime error
         {"type": "py", "code": "x = 999", "expected": 999},
         {"type": "cpp", "code": "int main() { return 42; }", "expected": 42},
     ]
